@@ -1,0 +1,45 @@
+# Python
+__pycache__/       
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# uv & Virtual Environment
+.venv/       
+venv/
+env/
+ENV/
+
+# Node.js
+node_modules/ 
+.npm/
+
+# Docker & Database
+postgres_data/      # Local DB files
+redis_data/         # Local Redis files
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env          
+.env.local
+config.yaml
+
+# OS specific
+.DS_Store           # macOS
+Thumbs.db           # Windows
+desktop.ini
