@@ -43,3 +43,9 @@ config.yaml
 .DS_Store           # macOS
 Thumbs.db           # Windows
 desktop.ini
+
+# data
+*data/
+
+# Others
+tmp/
