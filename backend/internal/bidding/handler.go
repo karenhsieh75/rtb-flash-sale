@@ -3,6 +3,7 @@ package bidding
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,13 +44,30 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 		return
 	}
 
+	now := time.Now().UnixMilli()
+	bidID := fmt.Sprintf("bid_%d_%s", now, userID)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "出價成功",
-		"data": BidResponse{
+		"bid": BidResponse{
+			ID:        bidID,
 			ProductID: productID,
 			UserID:    userID,
 			Price:     req.Price,
+			Timestamp: now,
 			Score:     score,
 		},
 	})
+}
+	
+func (h *Handler) GetRankings(c *gin.Context) {
+	productID := c.Param("id")
+	
+	resp, err := h.service.GetRankings(c.Request.Context(), productID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
