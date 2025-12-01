@@ -72,6 +72,7 @@ func main() {
 		// Bidding
 		api.POST("/products/:id/bids", bidHandler.PlaceBid)
 		api.GET("/products/:id/rankings", bidHandler.GetRankings)
+		api.GET("/products/:id/results", bidHandler.GetResults)
 
 		// Product (Public Read)
 		api.GET("/products/:id", productHandler.Get)

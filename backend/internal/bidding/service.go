@@ -44,35 +44,7 @@ func (s *Service) CalculateScore(price float64, startTime int64, weight, alpha, 
 	return math.Round(score*10000) / 10000
 }
 
-// 輔助函式：從 Map 讀取 float64
-func getFloat(m map[string]string, key string, defaultVal float64) float64 {
-	if val, ok := m[key]; ok {
-		if f, err := strconv.ParseFloat(val, 64); err == nil {
-			return f
-		}
-	}
-	return defaultVal
-}
 
-// 輔助函式：從 Map 讀取 int64
-func getInt64(m map[string]string, key string, defaultVal int64) int64 {
-	if val, ok := m[key]; ok {
-		if i, err := strconv.ParseInt(val, 10, 64); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
-
-// 輔助函式：從 Map 讀取 int
-func getInt(m map[string]string, key string, defaultVal int) int {
-	if val, ok := m[key]; ok {
-		if i, err := strconv.Atoi(val); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
 
 // PlaceBid
 func (s *Service) PlaceBid(ctx context.Context, productID string, userID string, price float64, userWeight float64) (float64, error) {
@@ -136,86 +108,40 @@ func (s *Service) PlaceBid(ctx context.Context, productID string, userID string,
 
 // GetRankings: 根據 K 動態回傳
 func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingResponse, error) {
-	// 1. 先讀取 Config 拿到 K
+	// 1. 讀取 Config (K, HighestPrice)
 	configKey := fmt.Sprintf("auction:%s:config", productID)
-	// 我們只需要 K，用 HMGet 比較省
 	vals, err := s.rdb.HMGet(ctx, configKey, "k", "currentHighestPrice").Result()
-    if err != nil {
-        return nil, err
-    }
-	
-	// 解析 K
-    k := 5
-    if len(vals) > 0 && vals[0] != nil {
-        if valStr, ok := vals[0].(string); ok {
-            if parsedK, err := strconv.Atoi(valStr); err == nil {
-                k = parsedK
-            }
-        }
-    }
-
-    // 解析 HighestPrice
-    var globalHighestPrice float64 = 0
-    if len(vals) > 1 && vals[1] != nil {
-        if valStr, ok := vals[1].(string); ok {
-            globalHighestPrice, _ = strconv.ParseFloat(valStr, 64)
-        }
-    }
-
-	rankKey := fmt.Sprintf("auction:%s:rank", productID)
-	bidsKey := fmt.Sprintf("auction:%s:bids", productID)
-
-	// 2. 讀取 Top K (Redis index 是 0 到 k-1)
-	// ZRevRangeWithScores: 分數由高到低
-	zlist, err := s.rdb.ZRevRangeWithScores(ctx, rankKey, 0, int64(k-1)).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	items := []RankingItem{}
-
-	for i, z := range zlist {
-		userID := z.Member.(string)
-		score := z.Score
-
-		// 讀取詳細資訊
-		detailsStr, _ := s.rdb.HGet(ctx, bidsKey, userID).Result()
-		
-		var price, weight float64
-		var rTime int64
-		
-		parts := strings.Split(detailsStr, ",")
-		if len(parts) >= 3 {
-			price, _ = strconv.ParseFloat(parts[0], 64)
-			rTime, _ = strconv.ParseInt(parts[1], 10, 64)
-			weight, _ = strconv.ParseFloat(parts[2], 64)
+	k := 5
+	if len(vals) > 0 && vals[0] != nil {
+		if valStr, ok := vals[0].(string); ok {
+			if parsedK, err := strconv.Atoi(valStr); err == nil {
+				k = parsedK
+			}
 		}
-
-		display := "User_***"
-		if len(userID) > 4 {
-			display += userID[len(userID)-4:]
-		} else {
-			display += userID
-		}
-
-		items = append(items, RankingItem{
-			Rank:         i + 1,
-			UserID:       userID,
-			DisplayName:  display,
-			Price:        price,
-			ReactionTime: rTime,
-			Weight:       weight,
-			Score:        score,
-		})
 	}
 
-	// 3. 計算動態門檻分數 (第 K 名的分數)
-	// 因為我們只撈了 Top K，所以如果滿了，最後一名就是門檻
+	var globalHighestPrice float64 = 0
+	if len(vals) > 1 && vals[1] != nil {
+		if valStr, ok := vals[1].(string); ok {
+			globalHighestPrice, _ = strconv.ParseFloat(valStr, 64)
+		}
+	}
+
+	// 2. 呼叫共用邏輯
+	items, err := s.getRawRankings(ctx, productID, k)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 計算門檻
 	var threshold float64 = 0
 	if len(items) >= k {
 		threshold = items[k-1].Score
 	} else if len(items) > 0 {
-		// 如果還沒滿 K 人，門檻設最後一名
 		threshold = items[len(items)-1].Score
 	}
 
@@ -224,4 +150,53 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 		ThresholdScore:      threshold,
 		CurrentHighestPrice: globalHighestPrice,
 	}, nil
+}
+
+// GetResults: 取得最終結果
+func (s *Service) GetResults(ctx context.Context, productID string) ([]ResultItem, error) {
+	// 1. 檢查狀態
+	configKey := fmt.Sprintf("auction:%s:config", productID)
+	vals, err := s.rdb.HMGet(ctx, configKey, "status", "k").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	status := "not_started"
+	if len(vals) > 0 && vals[0] != nil {
+		status = vals[0].(string)
+	}
+
+	if status != "ended" {
+		return nil, fmt.Errorf("活動尚未結束")
+	}
+
+	k := 5
+	if len(vals) > 1 && vals[1] != nil {
+		if valStr, ok := vals[1].(string); ok {
+			if parsedK, err := strconv.Atoi(valStr); err == nil {
+				k = parsedK
+			}
+		}
+	}
+
+	// 2. 呼叫共用邏輯
+	rankingItems, err := s.getRawRankings(ctx, productID, k)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 轉換型別 (RankingItem -> ResultItem)
+	results := []ResultItem{}
+	for _, item := range rankingItems {
+		results = append(results, ResultItem{
+			Rank:        item.Rank,
+			UserID:      item.UserID,
+			DisplayName: item.DisplayName,
+			FinalPrice:  item.Price, // 對應欄位
+			FinalScore:  item.Score, // 對應欄位
+			IsWinner:    true,       // 這裡的邏輯是前 K 名就是贏家
+		})
+	}
+
+	return results, nil
 }

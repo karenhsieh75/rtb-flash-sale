@@ -71,3 +71,20 @@ func (h *Handler) GetRankings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+func (h *Handler) GetResults(c *gin.Context) {
+	productID := c.Param("id")
+	
+	results, err := h.service.GetResults(c.Request.Context(), productID)
+	if err != nil {
+        // 區分錯誤類型給予不同 Status Code
+        if err.Error() == "活動尚未結束" {
+		    c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        }
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"results": results})
+}
