@@ -21,6 +21,39 @@ services:
       POSTGRES_DB: auction_db    # 資料庫名稱
     volumes:
       - postgres_data:/var/lib/postgresql/data # 確保重開機資料還在
+  
+  # 3. Backend
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auction_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=auction_redis 
+      - DB_HOST=auction_db
+    depends_on:
+      - redis
+      - db
+    restart: on-failure
+
+  # 4. Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev  # 指定使用開發環境的 Dockerfile
+    container_name: auction_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # React 是在瀏覽器執行，不是在 Docker 容器裡執行，所以是用 localhost
+      - VITE_API_BASE_URL=http://localhost:8000 
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # 避免覆蓋容器內的 node_modules 
 
 # 定義 Volumes
 volumes:
