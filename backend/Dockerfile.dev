@@ -1,0 +1,25 @@
+# 使用 Go 1.23 Alpine 映像檔
+FROM golang:1.25-alpine
+
+# 設定工作目錄
+WORKDIR /app
+
+# 1. 安裝基礎工具 & tzdata (時區)
+# git 是 Air 監控檔案時可能需要的
+RUN apk add --no-cache git tzdata
+
+# 2. 安裝 Air (Go 的熱更新工具)
+RUN go install github.com/air-verse/air@latest
+
+# 3. 複製依賴檔並下載
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 4. 複製所有程式碼
+COPY . .
+
+# 5. 暴露 Port
+EXPOSE 8000
+
+# 6. 啟動 Air (它會負責執行 main.go 並監控變動)
+CMD ["air"]
