@@ -8,6 +8,8 @@ services:
     ports:
       - "6379:6379"  # 開放 port 讓你的程式連線
     command: redis-server --appendonly yes # 讓資料持久化一點，避免重開全不見
+    volumes:
+      - ./redis_data:/data
 
   # 2. PostgreSQL: 用來存最終訂單、會員資料 (資料庫層)
   db:
