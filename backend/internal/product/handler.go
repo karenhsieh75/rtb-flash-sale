@@ -61,6 +61,36 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"products": products})
 }
 
+// Update 處理 PUT /admin/products/:id
+func (h *Handler) Update(c *gin.Context) {
+	// 1. 權限檢查
+	role, _ := c.Get("role")
+	if role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "權限不足"})
+		return
+	}
+
+	id := c.Param("id")
+	var p models.Product
+	
+	// 2. 綁定 JSON
+	if err := c.ShouldBindJSON(&p); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "參數錯誤: " + err.Error()})
+		return
+	}
+	
+	// 強制將 Model ID 設定為 URL 參數 ID，避免資料錯亂
+	p.ID = id
+
+	// 3. 呼叫 Service
+	if err := h.service.UpdateProduct(c.Request.Context(), &p); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, p)
+}
+
 // UpdateStatus 處理 PATCH /admin/products/:id/status
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	// 權限檢查

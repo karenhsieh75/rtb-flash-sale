@@ -7,7 +7,6 @@ import (
 	"os"
 	"rtb-backend/internal/database"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"

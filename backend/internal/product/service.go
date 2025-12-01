@@ -120,6 +120,32 @@ func (s *Service) ListProducts(ctx context.Context) ([]models.Product, error) { 
     return products, nil
 }
 
+// UpdateProduct 更新商品 (同時更新 DB 與 Redis)
+func (s *Service) UpdateProduct(ctx context.Context, p *models.Product) error {
+	// 1. 更新 PostgreSQL
+	// 使用 Where + Updates 確保只更新指定 ID
+	if err := s.db.Model(&models.Product{}).Where("id = ?", p.ID).Updates(p).Error; err != nil {
+		return err
+	}
+
+	// 2. 同步更新 Redis Config
+	// 注意：我們只更新設定參數，不重置 currentHighestPrice (保留戰況)
+	redisKey := fmt.Sprintf("auction:%s:config", p.ID)
+	err := s.rdb.HSet(ctx, redisKey, map[string]interface{}{
+		"title":       p.Title,
+		"startTime":   p.StartTime,
+		"endTime":     p.EndTime,
+		"basePrice":   p.BasePrice,
+		"k":           p.K,
+		"alpha":       p.Alpha,
+		"beta":        p.Beta,
+		"gamma":       p.Gamma,
+		"status":      string(p.Status),
+	}).Err()
+
+	return err
+}
+
 // UpdateStatus 更新狀態 (需同步 Redis)
 func (s *Service) UpdateStatus(ctx context.Context, id string, status models.ProductStatus) error {
 	// 1. 更新 DB

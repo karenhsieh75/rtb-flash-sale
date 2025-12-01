@@ -82,6 +82,7 @@ func main() {
 		admin := api.Group("/admin")
 		{
 			admin.POST("/products", productHandler.Create)
+			admin.PUT("/products/:id", productHandler.Update)
 			admin.PATCH("/products/:id/status", productHandler.UpdateStatus)
 		}
 	}
