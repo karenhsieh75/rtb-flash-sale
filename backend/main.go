@@ -74,6 +74,7 @@ func main() {
 		api.GET("/products/:id/rankings", bidHandler.GetRankings)
 
 		// Product (Public Read)
+		api.GET("/products/:id", productHandler.Get)
 		api.GET("/products", productHandler.List)
 
 		// Product (Admin Write)

@@ -22,13 +22,13 @@ type Product struct {
 	EndTime     int64         `gorm:"not null" json:"endTime"`   // Unix timestamp (毫秒)
 	Status      ProductStatus `gorm:"default:'not_started'" json:"status"`
 	
+	// gorm:"-" 代表不存入 Postgres，只用於 JSON 回傳
+    CurrentHighestPrice float64 `gorm:"-" json:"currentHighestPrice"`
+
 	// 動態權重參數
 	Alpha float64 `gorm:"default:1.0" json:"alpha"`
 	Beta  float64 `gorm:"default:0.5" json:"beta"`
 	Gamma float64 `gorm:"default:0.3" json:"gamma"`
-
-	// 關聯: 一個商品有多個出價紀錄 (Optional, 視需求加)
-	// Bids []BidLog `gorm:"foreignKey:ProductID" json:"-"`
 	
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`

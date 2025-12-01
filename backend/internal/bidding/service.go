@@ -113,7 +113,10 @@ func (s *Service) PlaceBid(ctx context.Context, productID string, userID string,
 
 	// 4. 執行 Lua
 	fmt.Printf("[Debug] 正在寫入 Redis Key: %s, User: %s, Score: %f\n", rankKey, userID, score)
-	res, err := s.rdb.EvalSha(ctx, s.bidScript, []string{rankKey, bidsKey}, userID, score, now, endTime, details).Int()
+	res, err := s.rdb.EvalSha(ctx, s.bidScript, 
+        []string{rankKey, bidsKey, configKey}, // KEYS[1], [2], [3]
+        userID, score, now, endTime, details, price, // ARGV[1] ~ [6]
+    ).Int()
 	if err != nil {
 		return 0, fmt.Errorf("Redis 執行錯誤: %v", err)
 	}
@@ -136,20 +139,28 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 	// 1. 先讀取 Config 拿到 K
 	configKey := fmt.Sprintf("auction:%s:config", productID)
 	// 我們只需要 K，用 HMGet 比較省
-	vals, err := s.rdb.HMGet(ctx, configKey, "k").Result()
-	if err != nil {
-		return nil, err
-	}
+	vals, err := s.rdb.HMGet(ctx, configKey, "k", "currentHighestPrice").Result()
+    if err != nil {
+        return nil, err
+    }
 	
-	// 解析 K (如果不存預設取 5)
-	k := 5 
-	if len(vals) > 0 && vals[0] != nil {
-		if valStr, ok := vals[0].(string); ok {
-			if parsedK, err := strconv.Atoi(valStr); err == nil {
-				k = parsedK
-			}
-		}
-	}
+	// 解析 K
+    k := 5
+    if len(vals) > 0 && vals[0] != nil {
+        if valStr, ok := vals[0].(string); ok {
+            if parsedK, err := strconv.Atoi(valStr); err == nil {
+                k = parsedK
+            }
+        }
+    }
+
+    // 解析 HighestPrice
+    var globalHighestPrice float64 = 0
+    if len(vals) > 1 && vals[1] != nil {
+        if valStr, ok := vals[1].(string); ok {
+            globalHighestPrice, _ = strconv.ParseFloat(valStr, 64)
+        }
+    }
 
 	rankKey := fmt.Sprintf("auction:%s:rank", productID)
 	bidsKey := fmt.Sprintf("auction:%s:bids", productID)
@@ -162,7 +173,6 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 	}
 
 	items := []RankingItem{}
-	var highestPrice float64 = 0
 
 	for i, z := range zlist {
 		userID := z.Member.(string)
@@ -179,10 +189,6 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 			price, _ = strconv.ParseFloat(parts[0], 64)
 			rTime, _ = strconv.ParseInt(parts[1], 10, 64)
 			weight, _ = strconv.ParseFloat(parts[2], 64)
-		}
-
-		if price > highestPrice {
-			highestPrice = price
 		}
 
 		display := "User_***"
@@ -216,6 +222,6 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 	return &RankingResponse{
 		Rankings:            items,
 		ThresholdScore:      threshold,
-		CurrentHighestPrice: highestPrice,
+		CurrentHighestPrice: globalHighestPrice,
 	}, nil
 }

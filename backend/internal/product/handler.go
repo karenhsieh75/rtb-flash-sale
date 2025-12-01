@@ -38,9 +38,22 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, p)
 }
 
+// Get 處理 GET /products/:id
+func (h *Handler) Get(c *gin.Context) {
+	id := c.Param("id")
+
+	p, err := h.service.GetProduct(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "商品不存在"})
+		return
+	}
+
+	c.JSON(http.StatusOK, p)
+}
+
 // List 處理 GET /products
 func (h *Handler) List(c *gin.Context) {
-	products, err := h.service.ListProducts()
+	products, err := h.service.ListProducts(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
