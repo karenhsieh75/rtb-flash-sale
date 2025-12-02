@@ -5,7 +5,8 @@ import { ProductInfo } from '../components/ProductInfo';
 import { BidForm } from '../components/BidForm';
 import { RankingTable } from '../components/RankingTable';
 import { ResultSection } from '../components/ResultSection';
-import { mockProductService } from '../services/mockProductService';
+import { productService } from '../services/productService';
+import { websocketService } from '../services/websocketService';
 import { useAuth } from '../contexts/AuthContext';
 import type { Product } from '../types/product';
 import type { RankingItem } from '../components/RankingTable';
@@ -19,19 +20,26 @@ export const AuctionDetailPage = () => {
   const [results, setResults] = useState<ProductResult[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [userScore, setUserScore] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // 初始加载数据
   useEffect(() => {
     if (!productId) return;
 
-    const loadData = () => {
-      const productData = mockProductService.getProductById(productId);
-      if (productData) {
+    const loadData = async () => {
+      try {
+        setError(null);
+        const [productData, rankingData] = await Promise.all([
+          productService.getProductById(productId),
+          productService.getProductRankings(productId),
+        ]);
+
         setProduct(productData);
-        const rankingData = mockProductService.getProductRankings(productId);
         setRankings(rankingData);
 
         if (productData.status === 'ended') {
-          const resultData = mockProductService.getProductResults(productId);
+          const resultData = await productService.getProductResults(productId);
           setResults(resultData);
         }
 
@@ -46,26 +54,97 @@ export const AuctionDetailPage = () => {
             setUserScore(null);
           }
         }
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '載入失敗');
+        setLoading(false);
       }
     };
 
     loadData();
-    const interval = setInterval(loadData, 2000);
-
-    return () => clearInterval(interval);
   }, [productId, user]);
+
+  // WebSocket 连接和消息处理
+  useEffect(() => {
+    if (!productId || !user) return;
+
+    // 连接 WebSocket
+    websocketService.connect(productId);
+
+    // 处理 WebSocket 消息
+    const handleMessage = (message: any) => {
+      if (message.type === 'rankings_update' && message.data) {
+        const rankings = message.data.rankings || [];
+        setRankings(rankings);
+
+        // 更新商品最高价
+        if (product && message.data.currentHighestPrice !== undefined) {
+          setProduct({
+            ...product,
+            currentHighestPrice: message.data.currentHighestPrice,
+          });
+        }
+
+        // 更新用户排名
+        if (user) {
+          const userRanking = rankings.find((r: RankingItem) => r.userId === user.id);
+          if (userRanking) {
+            setUserRank(userRanking.rank);
+            setUserScore(userRanking.score);
+          } else {
+            setUserRank(null);
+            setUserScore(null);
+          }
+        }
+      } else if (message.type === 'product_update' && message.data) {
+        if (product) {
+          setProduct({
+            ...product,
+            status: message.data.status || product.status,
+            currentHighestPrice: message.data.currentHighestPrice || product.currentHighestPrice,
+          });
+        }
+      } else if (message.type === 'bid_notification') {
+        // 出价通知，可以显示提示或更新 UI
+        console.log('收到出价通知:', message.data);
+      }
+    };
+
+    websocketService.onMessage(handleMessage);
+
+    // 清理函数
+    return () => {
+      websocketService.disconnect();
+    };
+  }, [productId, user, product]);
 
   const handleBidSubmit = async (price: number) => {
     if (!productId || !user) return;
-    await mockProductService.placeBid(productId, user.id, price);
+    try {
+      await productService.placeBid(productId, price);
+      // WebSocket 会自动推送更新，不需要手动刷新
+    } catch (err) {
+      throw err;
+    }
   };
 
-  if (!product) {
+  if (loading || !product) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header showBackButton backTo="/products" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-gray-600">載入中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header showBackButton backTo="/products" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-red-600">{error}</div>
         </div>
       </div>
     );

@@ -15,6 +15,7 @@ import (
 	"rtb-backend/internal/bidding"
 	"rtb-backend/internal/database"
 	"rtb-backend/internal/product"
+	"rtb-backend/internal/websocket"
 )
 
 var ctx = context.Background()
@@ -37,9 +38,13 @@ func main() {
 
 	db := database.InitDB()
 
-	// 2. 服務層初始化 (Service Layer)
+	// 2. WebSocket Hub 初始化
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
+	// 3. 服務層初始化 (Service Layer)
 	authService := auth.NewService(db)
-	bidService := bidding.NewService(rdb, db)
+	bidService := bidding.NewService(rdb, db, wsHub)
 	productService := product.NewService(rdb, db)
 
 	// 3. 處理層初始化 (Handler Layer)
@@ -64,6 +69,11 @@ func main() {
 		authGroup.POST("/register", authHandler.Register)
 		authGroup.POST("/login", authHandler.Login)
 	}
+
+	// WebSocket 路由（不需要认证中间件，在 handler 中验证）
+	r.GET("/ws", func(c *gin.Context) {
+		websocket.ServeWS(wsHub, c)
+	})
 
 	// API Routes (受保護)
 	api := r.Group("/api")

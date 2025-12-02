@@ -44,6 +44,8 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 		return
 	}
 
+	// WebSocket 广播会在 service 中自动处理
+
 	now := time.Now().UnixMilli()
 	bidID := fmt.Sprintf("bid_%d_%s", now, userID)
 

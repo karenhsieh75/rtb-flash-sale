@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
-import { mockProductService } from '../services/mockProductService';
+import { productService } from '../services/productService';
 import type { Product, ProductStatus } from '../types/product';
 
 const formatTime = (timestamp: number): string => {
@@ -36,8 +36,13 @@ export const AdminProductPage = () => {
     loadProducts();
   }, []);
 
-  const loadProducts = () => {
-    setProducts(mockProductService.getAllProducts());
+  const loadProducts = async () => {
+    try {
+      const data = await productService.getAllProducts();
+      setProducts(data);
+    } catch (err) {
+      console.error('載入商品失敗:', err);
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -76,64 +81,61 @@ export const AdminProductPage = () => {
     });
   };
 
-  const handleSave = () => {
-    if (isCreating) {
-      mockProductService.createProduct({
-        title: formData.title,
-        description: formData.description,
-        basePrice: formData.basePrice,
-        k: formData.k,
-        startTime: new Date(formData.startTime).getTime(),
-        endTime: new Date(formData.endTime).getTime(),
-        alpha: formData.alpha,
-        beta: formData.beta,
-        gamma: formData.gamma,
-      });
-    } else if (editingProduct) {
-      mockProductService.updateProduct(editingProduct.id, {
-        title: formData.title,
-        description: formData.description,
-        basePrice: formData.basePrice,
-        k: formData.k,
-        startTime: new Date(formData.startTime).getTime(),
-        endTime: new Date(formData.endTime).getTime(),
-        alpha: formData.alpha,
-        beta: formData.beta,
-        gamma: formData.gamma,
-        status: formData.status,
-      });
+  const handleSave = async () => {
+    try {
+      if (isCreating) {
+        await productService.createProduct({
+          title: formData.title,
+          description: formData.description,
+          basePrice: formData.basePrice,
+          k: formData.k,
+          startTime: new Date(formData.startTime).getTime(),
+          endTime: new Date(formData.endTime).getTime(),
+          alpha: formData.alpha,
+          beta: formData.beta,
+          gamma: formData.gamma,
+        });
+      } else if (editingProduct) {
+        await productService.updateProduct(editingProduct.id, {
+          title: formData.title,
+          description: formData.description,
+          basePrice: formData.basePrice,
+          k: formData.k,
+          startTime: new Date(formData.startTime).getTime(),
+          endTime: new Date(formData.endTime).getTime(),
+          alpha: formData.alpha,
+          beta: formData.beta,
+          gamma: formData.gamma,
+          status: formData.status,
+        });
+      }
+      await loadProducts();
+      setEditingProduct(null);
+      setIsCreating(false);
+      setIsStatusChange(false);
+    } catch (err) {
+      console.error('儲存失敗:', err);
+      alert(err instanceof Error ? err.message : '儲存失敗');
     }
-    loadProducts();
-    setEditingProduct(null);
-    setIsCreating(false);
-    setIsStatusChange(false);
   };
 
-  const handleStatusChange = (product: Product) => {
-    // 编辑该商品并更新状态
-    setEditingProduct(product);
-    setIsCreating(false);
-    setIsStatusChange(true);
-    let newStatus: ProductStatus;
-    if (product.status === 'not_started') {
-      newStatus = 'active';
-    } else if (product.status === 'active') {
-      newStatus = 'ended';
-    } else {
-      newStatus = 'not_started';
+  const handleStatusChange = async (product: Product) => {
+    try {
+      let newStatus: ProductStatus;
+      if (product.status === 'not_started') {
+        newStatus = 'active';
+      } else if (product.status === 'active') {
+        newStatus = 'ended';
+      } else {
+        newStatus = 'not_started';
+      }
+      
+      await productService.updateProductStatus(product.id, newStatus);
+      await loadProducts();
+    } catch (err) {
+      console.error('更新狀態失敗:', err);
+      alert(err instanceof Error ? err.message : '更新狀態失敗');
     }
-    setFormData({
-      title: product.title,
-      description: product.description,
-      basePrice: product.basePrice,
-      k: product.k,
-      startTime: new Date(product.startTime).toISOString().slice(0, 16),
-      endTime: new Date(product.endTime).toISOString().slice(0, 16),
-      alpha: product.alpha || 1.0,
-      beta: product.beta || 0.5,
-      gamma: product.gamma || 0.3,
-      status: newStatus,
-    });
   };
 
   return (

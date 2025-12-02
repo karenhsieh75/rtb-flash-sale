@@ -1,51 +1,71 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Redis data
+redis_data/
+*.rdb
+*.aof
+
+# Docker
+docker-compose.override.yml
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
 # Python
-__pycache__/       
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
-build/
-dist/
-*.egg-info/
-
-# uv & Virtual Environment
-.venv/       
+.Python
 venv/
 env/
 ENV/
 
-# Node.js
-node_modules/ 
-.npm/
+# Load test results
+loadtest/results/
+loadtest/verification_report_*.txt
 
-# Docker & Database
-postgres_data/      # Local DB files
-redis_data/         # Local Redis files
-
-# VS Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# PyCharm
-.idea/
-
-# Logs
-*.log
-
-# Environment variables
-.env          
-.env.local
-config.yaml
-
-# OS specific
-.DS_Store           # macOS
-Thumbs.db           # Windows
-desktop.ini
-
-# data
-*data/
-
-# Others
-tmp/
+# OS
+Thumbs.db
+.DS_Store

@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import type { UserRole } from '../contexts/AuthContext';
 
 export const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('member');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
@@ -17,7 +16,7 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      await login(username, password, role);
+      await login(username, password);
       // 登录成功后会通过 AuthContext 更新状态，路由会自动跳转
     } catch (err) {
       setError(err instanceof Error ? err.message : '登入失敗');
@@ -35,38 +34,6 @@ export const LoginPage = () => {
           </h1>
           
           <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                選擇角色
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => !loading && setRole('member')}
-                  disabled={loading}
-                  className={`px-4 py-3 rounded-md border-2 transition-all ${
-                    role === 'member'
-                      ? 'bg-gray-200 border-gray-400 text-gray-900 font-semibold'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  Member
-                </button>
-                <button
-                  type="button"
-                  onClick={() => !loading && setRole('admin')}
-                  disabled={loading}
-                  className={`px-4 py-3 rounded-md border-2 transition-all ${
-                    role === 'admin'
-                      ? 'bg-gray-200 border-gray-400 text-gray-900 font-semibold'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username
@@ -110,6 +77,16 @@ export const LoginPage = () => {
             >
               {loading ? '登入中...' : '登入'}
             </button>
+
+            <div className="text-center text-sm text-gray-600">
+              還沒有帳號？{' '}
+              <Link
+                to="/register"
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                立即註冊
+              </Link>
+            </div>
           </form>
         </div>
       </div>

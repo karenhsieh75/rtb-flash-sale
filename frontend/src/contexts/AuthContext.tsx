@@ -1,12 +1,12 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { authAPI } from '../services/api';
 
 export type UserRole = 'member' | 'admin';
 
 export interface User {
   id: string;
   username: string;
-  email: string;
   weight: number;
   token: string;
   role: UserRole;
@@ -14,7 +14,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string, role: UserRole) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -27,25 +27,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  const login = async (username: string, password: string, role: UserRole) => {
-    // 模拟 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Mock 登录逻辑
-    if (username && password) {
-      const mockUser: User = {
-        id: `user_${Date.now()}`,
-        username,
-        email: `${username}@example.com`,
-        weight: role === 'admin' ? 1.5 : 1.2, // 管理员权重更高
-        token: `mock_token_${Date.now()}`,
-        role,
+  const login = async (username: string, password: string) => {
+    try {
+      const data = await authAPI.login(username, password);
+      
+      const userData: User = {
+        id: data.user.id,
+        username: data.user.username,
+        weight: data.user.weight,
+        token: data.token,
+        role: data.user.role,
       };
       
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-    } else {
-      throw new Error('帳號或密碼錯誤');
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : '登入失敗');
     }
   };
 

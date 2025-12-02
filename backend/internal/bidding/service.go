@@ -2,10 +2,12 @@ package bidding
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"rtb-backend/internal/database"
+	"rtb-backend/internal/websocket"
 	"strconv"
 	"time"
 
@@ -17,9 +19,10 @@ type Service struct {
 	rdb       *redis.Client
 	db        *gorm.DB
 	bidScript string
+	hub       *websocket.Hub
 }
 
-func NewService(rdb *redis.Client, db *gorm.DB) *Service {
+func NewService(rdb *redis.Client, db *gorm.DB, hub *websocket.Hub) *Service {
 	// 讀取 Lua 腳本
 	content, err := os.ReadFile("scripts/place_bid.lua")
 	if err != nil {
@@ -29,7 +32,7 @@ func NewService(rdb *redis.Client, db *gorm.DB) *Service {
 	if err != nil {
 		panic("Lua 腳本載入失敗: " + err.Error())
 	}
-	return &Service{rdb: rdb, db: db, bidScript: sha}
+	return &Service{rdb: rdb, db: db, bidScript: sha, hub: hub}
 }
 
 // 修改 CalculateScore 讓它接收動態參數
@@ -100,6 +103,14 @@ func (s *Service) PlaceBid(ctx context.Context, productID string, userID string,
 		s.db.Create(&database.BidLog{
 			UserID: userID, ProductID: productID, Price: price, Score: score, CreatedAt: time.Now(),
 		})
+	}()
+
+	// 6. 广播出价通知和排行榜更新
+	go func() {
+		s.broadcastBidNotification(productID, userID, price, score)
+		// 延迟一点再更新排行榜，确保 Redis 数据已更新
+		time.Sleep(100 * time.Millisecond)
+		s.BroadcastRankingsUpdate(context.Background(), productID)
 	}()
 
 	return score, nil
@@ -198,4 +209,59 @@ func (s *Service) GetResults(ctx context.Context, productID string) ([]ResultIte
 	}
 
 	return results, nil
+}
+
+// broadcastBidNotification 广播出价通知
+func (s *Service) broadcastBidNotification(productID, userID string, price, score float64) {
+	message := websocket.Message{
+		Type:      "bid_notification",
+		ProductID: productID,
+		Data: map[string]interface{}{
+			"userId":    userID,
+			"price":     price,
+			"score":     score,
+			"timestamp": time.Now().UnixMilli(),
+		},
+	}
+	data, _ := json.Marshal(message)
+	s.hub.BroadcastToProduct(productID, data)
+}
+
+// BroadcastRankingsUpdate 广播排行榜更新
+func (s *Service) BroadcastRankingsUpdate(ctx context.Context, productID string) {
+	rankings, err := s.GetRankings(ctx, productID)
+	if err != nil {
+		return
+	}
+
+	// 获取当前最高价
+	configKey := fmt.Sprintf("auction:%s:config", productID)
+	currentHighestPrice, _ := s.rdb.HGet(ctx, configKey, "currentHighestPrice").Float64()
+
+	message := websocket.Message{
+		Type:      "rankings_update",
+		ProductID: productID,
+		Data: map[string]interface{}{
+			"rankings":            rankings.Rankings,
+			"thresholdScore":      rankings.ThresholdScore,
+			"currentHighestPrice": currentHighestPrice,
+		},
+	}
+	data, _ := json.Marshal(message)
+	s.hub.BroadcastToProduct(productID, data)
+}
+
+// BroadcastProductUpdate 广播商品状态更新
+func (s *Service) BroadcastProductUpdate(productID string, status string, currentHighestPrice float64) {
+	message := websocket.Message{
+		Type:      "product_update",
+		ProductID: productID,
+		Data: map[string]interface{}{
+			"id":                  productID,
+			"status":              status,
+			"currentHighestPrice": currentHighestPrice,
+		},
+	}
+	data, _ := json.Marshal(message)
+	s.hub.BroadcastToProduct(productID, data)
 }

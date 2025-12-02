@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/Header';
-import { mockProductService } from '../services/mockProductService';
+import { productService } from '../services/productService';
 import type { Product, ProductStatus } from '../types/product';
 
 const formatTime = (timestamp: number): string => {
@@ -84,8 +84,13 @@ export const ProductLobbyPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    const loadProducts = () => {
-      setProducts(mockProductService.getAllProducts());
+    const loadProducts = async () => {
+      try {
+        const data = await productService.getAllProducts();
+        setProducts(data);
+      } catch (err) {
+        console.error('載入商品失敗:', err);
+      }
     };
 
     loadProducts();

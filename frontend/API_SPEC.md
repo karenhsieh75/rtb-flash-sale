@@ -11,9 +11,9 @@
 
 ## 認證相關 API
 
-### 1. 用戶登入
+### 1. 用戶註冊
 
-**端點**: `POST /auth/login`
+**端點**: `POST /auth/register`
 
 **請求體**:
 ```json
@@ -27,11 +27,40 @@
 **響應** (200 OK):
 ```json
 {
+  "message": "註冊成功",
+  "userId": "string",
+  "weight": 1.2
+}
+```
+
+**錯誤響應** (400 Bad Request):
+```json
+{
+  "error": "使用者名稱已存在"
+}
+```
+
+---
+
+### 2. 用戶登入
+
+**端點**: `POST /auth/login`
+
+**請求體**:
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+
+**響應** (200 OK):
+```json
+{
   "token": "string",
   "user": {
     "id": "string",
     "username": "string",
-    "email": "string",
     "weight": 1.2,
     "role": "member" | "admin"
   }
@@ -47,45 +76,23 @@
 
 ---
 
-### 2. 用戶登出
+### 3. 用戶登出
 
 **端點**: `POST /auth/logout`
 
-**請求頭**: 
-```
-Authorization: Bearer {token}
-```
+**狀態**: ⚠️ 待實現
 
-**響應** (200 OK):
-```json
-{
-  "message": "登出成功"
-}
-```
+**說明**: 目前後端未實現此端點，前端可通過清除本地 token 實現登出功能。
 
 ---
 
-### 3. 驗證 Token
+### 4. 驗證 Token
 
 **端點**: `GET /auth/verify`
 
-**請求頭**: 
-```
-Authorization: Bearer {token}
-```
+**狀態**: ⚠️ 待實現
 
-**響應** (200 OK):
-```json
-{
-  "user": {
-    "id": "string",
-    "username": "string",
-    "email": "string",
-    "weight": 1.2,
-    "role": "member" | "admin"
-  }
-}
-```
+**說明**: 目前後端未實現此端點，前端可通過解析 JWT token 來驗證用戶信息。
 
 ---
 
@@ -126,7 +133,9 @@ Authorization: Bearer {token}
 
 ### 5. 獲取單一商品詳情
 
-**端點**: `GET /products/:productId`
+**端點**: `GET /products/:id`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -162,7 +171,9 @@ Authorization: Bearer {token}
 
 ### 6. 獲取商品排行榜
 
-**端點**: `GET /products/:productId/rankings`
+**端點**: `GET /products/:id/rankings`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -192,7 +203,9 @@ Authorization: Bearer {token}
 
 ### 7. 提交出價
 
-**端點**: `POST /products/:productId/bids`
+**端點**: `POST /products/:id/bids`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -215,7 +228,8 @@ Authorization: Bearer {token}
     "productId": "string",
     "userId": "string",
     "price": 1500,
-    "timestamp": 1234567890000
+    "timestamp": 1234567890000,
+    "score": 1340.0
   }
 }
 ```
@@ -234,11 +248,27 @@ Authorization: Bearer {token}
 }
 ```
 
+**錯誤響應** (500 Internal Server Error):
+```json
+{
+  "error": "活動已結束"
+}
+```
+
+**錯誤響應** (500 Internal Server Error):
+```json
+{
+  "error": "讀取商品設定失敗"
+}
+```
+
 ---
 
 ### 8. 獲取商品競標結果
 
-**端點**: `GET /products/:productId/results`
+**端點**: `GET /products/:id/results`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -318,7 +348,9 @@ Authorization: Bearer {token}
 
 ### 10. 更新商品
 
-**端點**: `PUT /admin/products/:productId`
+**端點**: `PUT /admin/products/:id`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -363,7 +395,9 @@ Authorization: Bearer {token}
 
 ### 11. 更新商品狀態
 
-**端點**: `PATCH /admin/products/:productId/status`
+**端點**: `PATCH /admin/products/:id/status`
+
+**注意**: 路由參數使用 `:id` 而非 `:productId`
 
 **請求頭**: 
 ```
@@ -389,25 +423,21 @@ Authorization: Bearer {token}
 
 ### 12. 刪除商品
 
-**端點**: `DELETE /admin/products/:productId`
+**端點**: `DELETE /admin/products/:id`
 
-**請求頭**: 
-```
-Authorization: Bearer {token}
-```
+**狀態**: ⚠️ 待實現
 
-**響應** (200 OK):
-```json
-{
-  "message": "商品已刪除"
-}
-```
+**說明**: 目前後端未實現此端點。
 
 ---
 
 ## WebSocket 連接
 
-### 連接端點
+**狀態**: ⚠️ 待實現
+
+**說明**: 目前後端未實現 WebSocket 功能。前端可暫時使用輪詢方式獲取實時更新。
+
+### 連接端點（待實現）
 
 **URL**: `ws://localhost:8000/ws`
 
@@ -601,9 +631,8 @@ interface ProductResult {
 
 ### 前端 API 調用範例
 
-```typescript
-// 登入
-const response = await fetch('http://localhost:8000/api/auth/login', {
+// 註冊
+const registerResponse = await fetch('http://localhost:8000/api/auth/register', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -612,6 +641,18 @@ const response = await fetch('http://localhost:8000/api/auth/login', {
     username: 'user123',
     password: 'password',
     role: 'member'
+  })
+});
+
+// 登入
+const response = await fetch('http://localhost:8000/api/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    username: 'user123',
+    password: 'password'
   })
 });
 

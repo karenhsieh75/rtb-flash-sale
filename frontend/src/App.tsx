@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/login';
+import { RegisterPage } from './pages/register';
 import { ProductLobbyPage } from './pages/ProductLobbyPage';
 import { AuctionDetailPage } from './pages/AuctionDetailPage';
 import { AdminProductPage } from './pages/AdminProductPage';
@@ -14,6 +15,10 @@ const AppContent = () => {
       <Route
         path="/login"
         element={user ? <Navigate to="/products" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/register"
+        element={user ? <Navigate to="/products" replace /> : <RegisterPage />}
       />
       <Route
         path="/products"
