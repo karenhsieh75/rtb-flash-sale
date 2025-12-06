@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -180,8 +181,23 @@ func ServeWS(hub *Hub, c *gin.Context) {
 		return
 	}
 
-	userID := claims["sub"].(string)
-	username := claims["username"].(string)
+	// sub 可能是 float64 (数字) 或 string，需要安全转换
+	var userID string
+	switch v := claims["sub"].(type) {
+	case float64:
+		userID = fmt.Sprintf("%.0f", v)
+	case string:
+		userID = v
+	default:
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 user ID"})
+		return
+	}
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 username"})
+		return
+	}
 
 	// 升级 HTTP 连接为 WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)

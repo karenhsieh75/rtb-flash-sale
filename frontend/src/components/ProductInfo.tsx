@@ -61,12 +61,6 @@ export const ProductInfo = ({ product }: ProductInfoProps) => {
       <h2 className="text-2xl font-bold text-gray-800 mb-4">{product.title}</h2>
       
       <div className="mb-4">
-        <div className="w-full h-64 bg-gray-200 rounded-md flex items-center justify-center text-gray-400">
-          商品圖片
-        </div>
-      </div>
-
-      <div className="mb-4">
         <p className="text-gray-600">{product.description}</p>
       </div>
 

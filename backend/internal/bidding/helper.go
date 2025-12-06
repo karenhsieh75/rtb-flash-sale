@@ -3,6 +3,7 @@ package bidding
 import (
 	"context"
 	"fmt"
+	"rtb-backend/internal/models"
 	"strconv"
 	"strings"
 )
@@ -65,12 +66,13 @@ func (s *Service) getRawRankings(ctx context.Context, productID string, k int) (
 			weight, _ = strconv.ParseFloat(parts[2], 64)
 		}
 
-		// 隱碼處理
-		display := "User_***"
-		if len(userID) > 4 {
-			display += userID[len(userID)-4:]
-		} else {
-			display += userID
+		// 從資料庫查詢使用者名稱
+		var user models.User
+		display := "User_" + userID // 預設值
+		if userIDInt, err := strconv.ParseUint(userID, 10, 32); err == nil {
+			if err := s.db.First(&user, uint(userIDInt)).Error; err == nil {
+				display = user.Username
+			}
 		}
 
 		items = append(items, RankingItem{

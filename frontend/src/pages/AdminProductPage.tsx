@@ -14,11 +14,29 @@ const formatTime = (timestamp: number): string => {
   });
 };
 
+// 将时间戳转换为本地时间的 datetime-local 格式字符串
+const timestampToLocalDateTime = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+// 将本地时间的 datetime-local 格式字符串转换为时间戳
+const localDateTimeToTimestamp = (dateTimeString: string): number => {
+  // datetime-local 输入框返回的是本地时间字符串（没有时区信息）
+  // 我们需要将其解析为本地时间的 Date 对象
+  const date = new Date(dateTimeString);
+  return date.getTime();
+};
+
 export const AdminProductPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [isStatusChange, setIsStatusChange] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -48,14 +66,13 @@ export const AdminProductPage = () => {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsCreating(false);
-    setIsStatusChange(false);
     setFormData({
       title: product.title,
       description: product.description,
       basePrice: product.basePrice,
       k: product.k,
-      startTime: new Date(product.startTime).toISOString().slice(0, 16),
-      endTime: new Date(product.endTime).toISOString().slice(0, 16),
+      startTime: timestampToLocalDateTime(product.startTime),
+      endTime: timestampToLocalDateTime(product.endTime),
       alpha: product.alpha || 1.0,
       beta: product.beta || 0.5,
       gamma: product.gamma || 0.3,
@@ -66,7 +83,6 @@ export const AdminProductPage = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     setIsCreating(true);
-    setIsStatusChange(false);
     setFormData({
       title: '',
       description: '',
@@ -89,8 +105,8 @@ export const AdminProductPage = () => {
           description: formData.description,
           basePrice: formData.basePrice,
           k: formData.k,
-          startTime: new Date(formData.startTime).getTime(),
-          endTime: new Date(formData.endTime).getTime(),
+          startTime: localDateTimeToTimestamp(formData.startTime),
+          endTime: localDateTimeToTimestamp(formData.endTime),
           alpha: formData.alpha,
           beta: formData.beta,
           gamma: formData.gamma,
@@ -101,8 +117,8 @@ export const AdminProductPage = () => {
           description: formData.description,
           basePrice: formData.basePrice,
           k: formData.k,
-          startTime: new Date(formData.startTime).getTime(),
-          endTime: new Date(formData.endTime).getTime(),
+          startTime: localDateTimeToTimestamp(formData.startTime),
+          endTime: localDateTimeToTimestamp(formData.endTime),
           alpha: formData.alpha,
           beta: formData.beta,
           gamma: formData.gamma,
@@ -112,35 +128,16 @@ export const AdminProductPage = () => {
       await loadProducts();
       setEditingProduct(null);
       setIsCreating(false);
-      setIsStatusChange(false);
     } catch (err) {
       console.error('儲存失敗:', err);
       alert(err instanceof Error ? err.message : '儲存失敗');
     }
   };
 
-  const handleStatusChange = async (product: Product) => {
-    try {
-      let newStatus: ProductStatus;
-      if (product.status === 'not_started') {
-        newStatus = 'active';
-      } else if (product.status === 'active') {
-        newStatus = 'ended';
-      } else {
-        newStatus = 'not_started';
-      }
-      
-      await productService.updateProductStatus(product.id, newStatus);
-      await loadProducts();
-    } catch (err) {
-      console.error('更新狀態失敗:', err);
-      alert(err instanceof Error ? err.message : '更新狀態失敗');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header showBackButton backTo="/products" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex justify-between items-center mb-6">
@@ -201,12 +198,6 @@ export const AdminProductPage = () => {
                             className="text-blue-600 hover:text-blue-800"
                           >
                             編輯
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(product)}
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            切換狀態
                           </button>
                         </td>
                       </tr>
@@ -367,12 +358,11 @@ export const AdminProductPage = () => {
                     >
                       {isCreating ? '新增商品' : '儲存變更'}
                     </button>
-                    {!isCreating && !isStatusChange && (
+                    {!isCreating && (
                       <button
                         onClick={() => {
                           setEditingProduct(null);
                           setIsCreating(false);
-                          setIsStatusChange(false);
                         }}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                       >

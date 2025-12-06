@@ -6,6 +6,7 @@ interface BidFormProps {
   userWeight: number;
   userRank: number | null;
   basePrice: number;
+  currentHighestPrice: number;
   activityStatus: 'not_started' | 'active' | 'ended';
   onBidSubmit: (price: number) => Promise<void>;
 }
@@ -14,6 +15,7 @@ export const BidForm = ({
   userWeight,
   userRank,
   basePrice,
+  currentHighestPrice,
   activityStatus,
   onBidSubmit,
 }: BidFormProps) => {
@@ -34,6 +36,12 @@ export const BidForm = ({
 
     if (bidPrice < basePrice) {
       setMessage({ type: 'error', text: '出價需高於起標價' });
+      return;
+    }
+
+    // 验证出价必须大于当前最高价（使用浮点数比较，考虑精度问题）
+    if (bidPrice <= currentHighestPrice || Math.abs(bidPrice - currentHighestPrice) < 0.001) {
+      setMessage({ type: 'error', text: `出價必須高於目前最高出價 $${currentHighestPrice.toLocaleString()}` });
       return;
     }
 
@@ -58,7 +66,7 @@ export const BidForm = ({
       <div className="mb-4 space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-gray-600">你的會員權重 W：</span>
-          <span className="font-semibold text-gray-800">{userWeight}</span>
+          <span className="font-semibold text-gray-800">{userWeight.toFixed(2)}</span>
         </div>
         {userRank !== null ? (
           <div className="flex justify-between">
@@ -87,6 +95,11 @@ export const BidForm = ({
             disabled={isDisabled}
             required
           />
+          {currentHighestPrice >= basePrice && (
+            <p className="mt-1 text-xs text-gray-500">
+              目前最高出價：${currentHighestPrice.toLocaleString()}，你的出價必須高於此金額
+            </p>
+          )}
         </div>
 
         {message && (

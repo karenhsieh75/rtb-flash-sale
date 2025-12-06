@@ -95,7 +95,7 @@ export const RegisterPage = () => {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                Username
+                使用者名稱
               </label>
               <input
                 id="username"
@@ -103,7 +103,7 @@ export const RegisterPage = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="請輸入 Username"
+                placeholder="請輸入使用者名稱"
                 required
                 disabled={loading}
               />

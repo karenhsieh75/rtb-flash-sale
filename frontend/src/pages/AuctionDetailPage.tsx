@@ -64,6 +64,50 @@ export const AuctionDetailPage = () => {
     loadData();
   }, [productId, user]);
 
+  // 监听活动结束时间，自动显示结果
+  useEffect(() => {
+    if (!product || product.status !== 'active') return;
+
+    const checkEndTime = () => {
+      const now = Date.now();
+      if (now >= product.endTime && product.status === 'active') {
+        // 活动已结束，更新状态并加载结果
+        setProduct((prevProduct) => {
+          if (!prevProduct || prevProduct.status === 'ended') return prevProduct;
+          return {
+            ...prevProduct,
+            status: 'ended',
+          };
+        });
+        
+        // 加载结果（延迟一点确保后端已更新状态）
+        if (productId) {
+          setTimeout(() => {
+            productService.getProductResults(productId).then(resultData => {
+              setResults(resultData);
+            }).catch(err => {
+              console.error('載入結果失敗:', err);
+              // 如果失败，重试一次
+              setTimeout(() => {
+                productService.getProductResults(productId).then(resultData => {
+                  setResults(resultData);
+                }).catch(err2 => console.error('重試載入結果失敗:', err2));
+              }, 1000);
+            });
+          }, 500);
+        }
+      }
+    };
+
+    // 立即检查一次
+    checkEndTime();
+
+    // 每秒检查一次
+    const interval = setInterval(checkEndTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [product, productId]);
+
   // WebSocket 连接和消息处理
   useEffect(() => {
     if (!productId || !user) return;
@@ -73,15 +117,23 @@ export const AuctionDetailPage = () => {
 
     // 处理 WebSocket 消息
     const handleMessage = (message: any) => {
+      // 只处理当前商品的消息
+      if (message.productId && message.productId !== productId) {
+        return;
+      }
+
       if (message.type === 'rankings_update' && message.data) {
         const rankings = message.data.rankings || [];
         setRankings(rankings);
 
-        // 更新商品最高价
-        if (product && message.data.currentHighestPrice !== undefined) {
-          setProduct({
-            ...product,
-            currentHighestPrice: message.data.currentHighestPrice,
+        // 更新商品最高价（使用函数式更新确保获取最新状态）
+        if (message.data.currentHighestPrice !== undefined) {
+          setProduct((prevProduct) => {
+            if (!prevProduct) return prevProduct;
+            return {
+              ...prevProduct,
+              currentHighestPrice: message.data.currentHighestPrice,
+            };
           });
         }
 
@@ -97,16 +149,76 @@ export const AuctionDetailPage = () => {
           }
         }
       } else if (message.type === 'product_update' && message.data) {
-        if (product) {
-          setProduct({
-            ...product,
-            status: message.data.status || product.status,
-            currentHighestPrice: message.data.currentHighestPrice || product.currentHighestPrice,
+        setProduct((prevProduct) => {
+          if (!prevProduct) return prevProduct;
+          const newStatus = message.data.status || prevProduct.status;
+          const updatedProduct = {
+            ...prevProduct,
+            status: newStatus,
+            currentHighestPrice: message.data.currentHighestPrice !== undefined 
+              ? message.data.currentHighestPrice 
+              : prevProduct.currentHighestPrice,
+          };
+          
+          // 如果活動結束，立即載入結果
+          if (newStatus === 'ended' && prevProduct.status !== 'ended') {
+            // 延迟一点确保后端已更新状态
+            setTimeout(() => {
+              productService.getProductResults(productId).then(resultData => {
+                setResults(resultData);
+              }).catch(err => {
+                console.error('載入結果失敗:', err);
+                // 如果失败，重试一次
+                setTimeout(() => {
+                  productService.getProductResults(productId).then(resultData => {
+                    setResults(resultData);
+                  }).catch(err2 => console.error('重試載入結果失敗:', err2));
+                }, 1000);
+              });
+            }, 500);
+          }
+          
+          return updatedProduct;
+        });
+      } else if (message.type === 'activity_status_change' && message.data) {
+        // 處理活動狀態變更
+        if (message.data.status === 'ended') {
+          setProduct((prevProduct) => {
+            if (!prevProduct || prevProduct.status === 'ended') return prevProduct;
+            // 延迟一点确保后端已更新状态
+            setTimeout(() => {
+              productService.getProductResults(productId).then(resultData => {
+                setResults(resultData);
+              }).catch(err => {
+                console.error('載入結果失敗:', err);
+                // 如果失败，重试一次
+                setTimeout(() => {
+                  productService.getProductResults(productId).then(resultData => {
+                    setResults(resultData);
+                  }).catch(err2 => console.error('重試載入結果失敗:', err2));
+                }, 1000);
+              });
+            }, 500);
+            return {
+              ...prevProduct,
+              status: 'ended',
+            };
           });
         }
-      } else if (message.type === 'bid_notification') {
-        // 出价通知，可以显示提示或更新 UI
-        console.log('收到出价通知:', message.data);
+      } else if (message.type === 'bid_notification' && message.data) {
+        // 出价通知后，触发重新获取排行榜（确保数据最新）
+        if (message.productId === productId) {
+          productService.getProductRankings(productId).then(rankings => {
+            setRankings(rankings);
+            if (user) {
+              const userRanking = rankings.find((r: RankingItem) => r.userId === user.id);
+              if (userRanking) {
+                setUserRank(userRanking.rank);
+                setUserScore(userRanking.score);
+              }
+            }
+          }).catch(err => console.error('获取排行榜失败:', err));
+        }
       }
     };
 
@@ -116,7 +228,7 @@ export const AuctionDetailPage = () => {
     return () => {
       websocketService.disconnect();
     };
-  }, [productId, user, product]);
+  }, [productId, user]);
 
   const handleBidSubmit = async (price: number) => {
     if (!productId || !user) return;
@@ -168,6 +280,7 @@ export const AuctionDetailPage = () => {
               userWeight={user?.weight || 1.2}
               userRank={userRank}
               basePrice={product.basePrice}
+              currentHighestPrice={product.currentHighestPrice}
               activityStatus={product.status}
               onBidSubmit={handleBidSubmit}
             />

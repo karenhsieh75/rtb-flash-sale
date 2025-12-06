@@ -85,7 +85,7 @@ export const RankingTable = ({
                     <td className="py-2 px-2 text-right text-gray-700">
                       {item.reactionTime} ms
                     </td>
-                    <td className="py-2 px-2 text-right text-gray-700">{item.weight}</td>
+                    <td className="py-2 px-2 text-right text-gray-700">{item.weight.toFixed(2)}</td>
                     <td className="py-2 px-2 text-right font-semibold text-gray-800">
                       {item.score.toFixed(2)}
                     </td>

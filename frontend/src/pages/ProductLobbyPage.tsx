@@ -94,7 +94,8 @@ export const ProductLobbyPage = () => {
     };
 
     loadProducts();
-    const interval = setInterval(loadProducts, 2000);
+    // 缩短轮询间隔到500毫秒，确保实时更新
+    const interval = setInterval(loadProducts, 500);
 
     return () => clearInterval(interval);
   }, []);

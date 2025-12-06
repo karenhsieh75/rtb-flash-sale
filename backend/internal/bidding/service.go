@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"rtb-backend/internal/database"
+	"rtb-backend/internal/models"
 	"rtb-backend/internal/websocket"
 	"strconv"
 	"time"
@@ -66,12 +67,18 @@ func (s *Service) PlaceBid(ctx context.Context, productID string, userID string,
 	alpha := getFloat(config, "alpha", 1.0)
 	beta := getFloat(config, "beta", 0.5)
 	gamma := getFloat(config, "gamma", 0.3)
+	currentHighestPrice := getFloat(config, "currentHighestPrice", 0)
 
 	now := time.Now().UnixMilli()
 	
 	// 檢查基本時間 (雖然 Lua 也會檢查，但這裡可以先擋掉不必要的運算)
 	if now < startTime {
 		return 0, fmt.Errorf("活動尚未開始")
+	}
+
+	// 檢查出價必須大於當前最高價
+	if price <= currentHighestPrice {
+		return 0, fmt.Errorf("出價必須高於目前最高出價 %.2f", currentHighestPrice)
 	}
 
 	// 3. 計算分數 (帶入 Redis 讀到的參數)
@@ -111,6 +118,13 @@ func (s *Service) PlaceBid(ctx context.Context, productID string, userID string,
 		// 延迟一点再更新排行榜，确保 Redis 数据已更新
 		time.Sleep(100 * time.Millisecond)
 		s.BroadcastRankingsUpdate(context.Background(), productID)
+		
+		// 广播商品更新（更新最高价），让商品列表页面也能实时更新
+		configKey := fmt.Sprintf("auction:%s:config", productID)
+		currentHighestPrice, _ := s.rdb.HGet(context.Background(), configKey, "currentHighestPrice").Float64()
+		if currentHighestPrice > 0 {
+			s.BroadcastProductUpdate(productID, "", currentHighestPrice)
+		}
 	}()
 
 	return score, nil
@@ -164,9 +178,9 @@ func (s *Service) GetRankings(ctx context.Context, productID string) (*RankingRe
 
 // GetResults: 取得最終結果
 func (s *Service) GetResults(ctx context.Context, productID string) ([]ResultItem, error) {
-	// 1. 檢查狀態
+	// 1. 檢查狀態（先從 Redis 讀取 endTime 來判斷是否應該結束）
 	configKey := fmt.Sprintf("auction:%s:config", productID)
-	vals, err := s.rdb.HMGet(ctx, configKey, "status", "k").Result()
+	vals, err := s.rdb.HMGet(ctx, configKey, "status", "k", "endTime").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +188,28 @@ func (s *Service) GetResults(ctx context.Context, productID string) ([]ResultIte
 	status := "not_started"
 	if len(vals) > 0 && vals[0] != nil {
 		status = vals[0].(string)
+	}
+
+	// 檢查時間，如果已經過了結束時間，強制更新狀態為 ended
+	now := time.Now().UnixMilli()
+	var endTime int64 = 0
+	if len(vals) >= 3 && vals[2] != nil {
+		if valStr, ok := vals[2].(string); ok {
+			if parsed, err := strconv.ParseInt(valStr, 10, 64); err == nil {
+				endTime = parsed
+			}
+		}
+	}
+
+	// 如果時間已過，但狀態還沒更新，先更新狀態
+	if now > endTime && status != "ended" && endTime > 0 {
+		status = "ended"
+		s.rdb.HSet(ctx, configKey, "status", "ended")
+		// 同時更新資料庫
+		var product models.Product
+		if err := s.db.Where("id = ?", productID).First(&product).Error; err == nil {
+			s.db.Model(&product).Update("status", "ended")
+		}
 	}
 
 	if status != "ended" {

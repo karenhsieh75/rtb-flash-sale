@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Redis: 用來做即時排行榜、扣庫存 (快取層)
   redis:
@@ -51,7 +49,7 @@ services:
       - "5173:5173"
     environment:
       # React 是在瀏覽器執行，不是在 Docker 容器裡執行，所以是用 localhost
-      - VITE_API_BASE_URL=http://localhost:8000 
+      - VITE_API_BASE_URL=http://localhost:8000/api 
     depends_on:
       - backend
     volumes:
