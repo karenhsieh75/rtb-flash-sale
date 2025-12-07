@@ -3,17 +3,6 @@ import { Header } from '../components/Header';
 import { productService } from '../services/productService';
 import type { Product, ProductStatus } from '../types/product';
 
-const formatTime = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  return date.toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
 // 将时间戳转换为本地时间的 datetime-local 格式字符串
 const timestampToLocalDateTime = (timestamp: number): string => {
   const date = new Date(timestamp);

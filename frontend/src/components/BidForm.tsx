@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 
 interface BidFormProps {
   userWeight: number;

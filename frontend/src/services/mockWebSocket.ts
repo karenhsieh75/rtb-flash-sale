@@ -23,7 +23,6 @@ class MockWebSocketService {
   private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private status: WSStatus = 'disconnected';
   private currentData: AuctionData;
-  private userId: string | null = null;
 
   constructor() {
     // 初始化假資料
@@ -60,8 +59,7 @@ class MockWebSocketService {
     return rankings;
   }
 
-  connect(userId: string) {
-    this.userId = userId;
+  connect(_userId: string) {
     this.status = 'connected';
     this.statusCallback?.(this.status);
     
