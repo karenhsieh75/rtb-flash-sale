@@ -27,8 +27,18 @@ func InitDB() *gorm.DB {
 	if host == "" {
 		host = "localhost"
 	}
+
+	user := os.Getenv("DB_USER")
+	if user == "" {
+		user = "admin"
+	}
+
+	password := os.Getenv("DB_PASSWORD")
+	if password == "" {
+		password = "password123"
+	}
 	
-	dsn := fmt.Sprintf("host=%s user=admin password=password123 dbname=auction_db port=5432 sslmode=disable TimeZone=Asia/Taipei", host)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=auction_db port=5432 sslmode=require TimeZone=Asia/Taipei", host, user, password)
 	
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

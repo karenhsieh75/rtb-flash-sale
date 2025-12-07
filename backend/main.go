@@ -56,7 +56,7 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-        AllowOrigins:     []string{"http://localhost:5173"},
+        AllowOrigins:     []string{"http://localhost:5173", "https://main.d1e4097u1k6mv4.amplifyapp.com"},
         AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
         AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
         AllowCredentials: true,
