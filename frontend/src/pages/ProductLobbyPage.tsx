@@ -94,8 +94,8 @@ export const ProductLobbyPage = () => {
     };
 
     loadProducts();
-    // 缩短轮询间隔到500毫秒，确保实时更新
-    const interval = setInterval(loadProducts, 500);
+    // 每 5 秒輪詢一次更新商品列表
+    const interval = setInterval(loadProducts, 5000);
 
     return () => clearInterval(interval);
   }, []);
