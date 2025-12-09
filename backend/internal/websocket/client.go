@@ -32,9 +32,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// 允许来自前端的连接
-		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:5173" || origin == ""
+		return true // 允許所有來源連線 (解決 403 錯誤)
 	},
 }
 
