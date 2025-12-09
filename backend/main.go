@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -62,6 +63,14 @@ func main() {
         AllowCredentials: true,
         MaxAge: 12 * time.Hour,
     }))
+
+	// Health check route
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "healthy",
+			"message": "Backend is running!",
+		})
+	})
 
 	// Auth Routes
 	authGroup := r.Group("/api/auth")
