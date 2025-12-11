@@ -170,31 +170,35 @@ auction:{productId}:bids          # Hash (出價詳情)
 auction:{productId}:config        # Hash (商品配置)
 ```
 
-## 🧪 測試流程
+## 🧪 測試與壓力測試
 
-1. **註冊用戶**
-   - 訪問 http://localhost:5173/register
-   - 選擇角色（Member 或 Admin）
-   - 註冊新帳號
-
+### 功能 / 手動驗證
+1. **註冊用戶**  
+   - http://localhost:5173/register，選擇 Member / Admin
 2. **登入**
-   - 使用註冊的帳號登入
+3. **管理員創建商品**（Admin）  
+   - http://localhost:5173/admin/products → 新增商品
+4. **用戶競標**  
+   - http://localhost:5173/products → 選擇「競標中」商品 → 出價（需高於目前最高價）  
+   - 即時排行榜、最高出價會透過 WebSocket 更新
+5. **查看結果**  
+   - 活動結束自動顯示結果（前 K 名得標者）
 
-3. **管理員創建商品**（需要 Admin 角色）
-   - 訪問 http://localhost:5173/admin/products
-   - 點擊「新增商品」
-   - 填寫商品資訊並保存
-
-4. **用戶競標**
-   - 訪問 http://localhost:5173/products
-   - 選擇「競標中」的商品
-   - 輸入出價金額（必須高於目前最高出價）
-   - 查看實時排行榜更新和目前最高出價變化
-
-5. **查看結果**
-   - 活動結束時，結果會自動顯示
-   - 無需刷新頁面，系統會自動載入最終競標結果
-   - 顯示前 K 名得標者及其出價和分數
+### 壓力測試（Locust）
+- 依賴：`pip install -r loadtest/requirements.txt`
+- Demo 腳本（自動建商品、分階段、指數成長）：  
+  ```bash
+  cd loadtest
+  locust -f locustfile_demo.py --host=https://d28wqj892frr80.cloudfront.net --run-time=3m
+  # 打開 http://localhost:8089 調整 users / spawn-rate
+  ```
+- 基礎腳本（無自動建商品）：  
+  ```bash
+  cd loadtest
+  locust -f locustfile.py --host=https://d28wqj892frr80.cloudfront.net \
+    --users=500 --spawn-rate=50 --run-time=3m --headless
+  ```
+- 一鍵腳本：`loadtest/run_loadtest.sh` 可自行擴充。
 
 ## 📝 API 文檔
 
