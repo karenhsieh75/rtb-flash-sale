@@ -1,298 +1,302 @@
-# 即時競標系統 (RTB Flash Sale)
+# RTB Flash Sale
 
-一個基於 Go + React 的即時競標/限時搶購系統，支持實時排行榜更新、出價競標、管理後台等功能。
+English | [繁體中文](./README.zh-TW.md)
 
-## 🚀 功能特色
+A real-time bidding / flash-sale system built with Go + React, supporting live leaderboard updates, competitive bidding, and an admin dashboard.
 
-### 用戶功能
-- 🔐 **用戶認證**：註冊、登入（支持 Member 和 Admin 角色）
-- 📦 **商品大廳**：查看所有商品及其狀態（準備中/競標中/已結束）
-- 🎯 **競標頁面**：單一商品詳細頁面，包含出價表單和即時排行榜
-- 📊 **實時更新**：WebSocket 實時推送排行榜和商品狀態更新
-- 🏆 **結果展示**：活動結束後顯示最終得標結果
+## 🚀 Features
 
-### 管理員功能
-- 👨‍💼 **商品管理**：新增、編輯商品
-- ⚙️ **參數配置**：設置商品起標價、限量數量 K、動態權重參數（α, β, γ）
-- 📅 **時間管理**：設置活動開始和結束時間（支持本地時區）
+### User Features
+- 🔐 **Authentication**: Register and log in (supports Member and Admin roles)
+- 📦 **Product Lobby**: View all products and their status (upcoming / bidding / ended)
+- 🎯 **Bidding Page**: Dedicated product page with a bid form and a live leaderboard
+- 📊 **Real-time Updates**: WebSocket pushes for leaderboard and product status changes
+- 🏆 **Results**: Final winners are displayed once the auction ends
 
-## 🏗️ 技術架構
+### Admin Features
+- 👨‍💼 **Product Management**: Create and edit products
+- ⚙️ **Parameter Configuration**: Set starting price, quota (K), and dynamic weight parameters (α, β, γ)
+- 📅 **Schedule Management**: Set start/end times (with local timezone support)
 
-### 後端 (Go)
-- **框架**: Gin
-- **資料庫**: PostgreSQL (持久化存儲)
-- **快取**: Redis (排行榜、出價記錄)
-- **認證**: JWT
-- **實時通信**: WebSocket (gorilla/websocket)
-- **腳本**: Lua Script (防止超賣、原子操作)
+## 🏗️ Tech Stack
 
-### 前端 (React)
-- **框架**: React 19.2 + TypeScript
-- **構建工具**: Vite 7.2
-- **樣式**: Tailwind CSS 3.4
-- **路由**: React Router DOM 7.1
-- **狀態管理**: React Context API
-- **實時通信**: WebSocket
+### Backend (Go)
+- **Framework**: Gin
+- **Database**: PostgreSQL (persistent storage)
+- **Cache**: Redis (leaderboard, bid records)
+- **Auth**: JWT
+- **Real-time**: WebSocket (gorilla/websocket)
+- **Scripting**: Lua Script (prevents overselling, atomic operations)
 
-### 基礎設施
-- **容器化**: Docker + Docker Compose
-- **資料庫**: PostgreSQL 13
-- **快取**: Redis (Alpine)
+### Frontend (React)
+- **Framework**: React 19.2 + TypeScript
+- **Build Tool**: Vite 7.2
+- **Styling**: Tailwind CSS 3.4
+- **Routing**: React Router DOM 7.1
+- **State Management**: React Context API
+- **Real-time**: WebSocket
 
-## 📁 項目結構
+### Infrastructure
+- **Containerization**: Docker + Docker Compose
+- **Database**: PostgreSQL 13
+- **Cache**: Redis (Alpine)
+
+## 📁 Project Structure
 
 ```
 rtb-flash-sale/
-├── backend/                 # Go 後端
+├── backend/                 # Go backend
 │   ├── internal/
-│   │   ├── auth/           # 認證模組
-│   │   ├── bidding/        # 競標模組
-│   │   ├── product/        # 商品模組
-│   │   ├── websocket/      # WebSocket 模組
-│   │   ├── database/       # 資料庫配置
-│   │   └── models/         # 資料模型
+│   │   ├── auth/           # Auth module
+│   │   ├── bidding/        # Bidding module
+│   │   ├── product/        # Product module
+│   │   ├── websocket/      # WebSocket module
+│   │   ├── database/       # Database configuration
+│   │   └── models/         # Data models
 │   ├── scripts/
-│   │   └── place_bid.lua   # Lua 腳本（防止超賣）
-│   ├── main.go             # 入口文件
-│   ├── Dockerfile          # 生產環境
-│   └── Dockerfile.dev      # 開發環境
-├── frontend/                # React 前端
+│   │   └── place_bid.lua   # Lua script (prevents overselling)
+│   ├── main.go             # Entry point
+│   ├── Dockerfile          # Production
+│   └── Dockerfile.dev      # Development
+├── frontend/                # React frontend
 │   ├── src/
-│   │   ├── components/     # 共用組件
-│   │   ├── pages/         # 頁面組件
-│   │   ├── services/      # API 服務
-│   │   ├── contexts/       # Context 提供者
-│   │   └── types/         # TypeScript 類型
-│   ├── Dockerfile          # 生產環境
-│   └── Dockerfile.dev      # 開發環境
-├── docker-compose.yml      # Docker Compose 配置
-└── README.md              # 本文件
+│   │   ├── components/     # Shared components
+│   │   ├── pages/         # Page components
+│   │   ├── services/      # API services
+│   │   ├── contexts/       # Context providers
+│   │   └── types/         # TypeScript types
+│   ├── Dockerfile          # Production
+│   └── Dockerfile.dev      # Development
+├── docker-compose.yml      # Docker Compose config
+└── README.md              # This file
 ```
 
-## 🚀 快速開始
+## 🚀 Getting Started
 
-### 前置要求
+### Prerequisites
 
 - Docker & Docker Compose
-- Go 1.25+ (本地開發)
-- Node.js 18+ (本地開發)
+- Go 1.25+ (for local development)
+- Node.js 18+ (for local development)
 
-### 使用 Docker Compose（推薦）
+### Using Docker Compose (Recommended)
 
-1. **克隆項目**
+1. **Clone the repository**
 ```bash
 git clone <repository-url>
 cd rtb-flash-sale
 ```
 
-2. **啟動所有服務**
+2. **Start all services**
 ```bash
 docker-compose up -d
 ```
 
-這會啟動：
+This will start:
 - Redis (port 6379)
 - PostgreSQL (port 5432)
 - Backend API (port 8000)
 - Frontend (port 5173)
 
-3. **訪問應用**
-- 前端: http://localhost:5173
-- 後端 API: http://localhost:8000/api
+3. **Access the app**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000/api
 
-### 本地開發
+### Local Development
 
-#### 後端開發
+#### Backend
 
 ```bash
 cd backend
 
-# 安裝依賴
+# Install dependencies
 go mod download
 
-# 啟動服務（需要先啟動 Redis 和 PostgreSQL）
+# Run the server (Redis and PostgreSQL must be running first)
 go run main.go
 ```
 
-#### 前端開發
+#### Frontend
 
 ```bash
 cd frontend
 
-# 安裝依賴
+# Install dependencies
 npm install
 
-# 啟動開發服務器
+# Start the dev server
 npm run dev
 ```
 
-## 🔧 環境變數
+## 🔧 Environment Variables
 
-### 後端
-- `REDIS_HOST`: Redis 主機地址（默認: localhost）
-- `DB_HOST`: PostgreSQL 主機地址（默認: localhost）
+### Backend
+- `REDIS_HOST`: Redis host (default: localhost)
+- `DB_HOST`: PostgreSQL host (default: localhost)
 
-### 前端
-- `VITE_API_BASE_URL`: 後端 API 地址（默認: http://localhost:8000/api）
-- `VITE_WS_BASE_URL`: WebSocket 地址（默認: ws://localhost:8000）
+### Frontend
+- `VITE_API_BASE_URL`: Backend API base URL (default: http://localhost:8000/api)
+- `VITE_WS_BASE_URL`: WebSocket base URL (default: ws://localhost:8000)
 
-## 📊 核心功能說明
+## 📊 Core Features
 
-### 1. 出價系統
+### 1. Bidding System
 
-- 使用 **Lua Script** 在 Redis 中原子性執行出價操作
-- 防止超賣：檢查活動時間、更新排行榜
-- **出價驗證**：出價必須高於當前最高出價（前端和後端雙重驗證）
-- 計算 Score：`score = (α × price) + (β / (t + 1)) + (γ × weight)`
-- 實時更新：出價後立即更新目前最高出價和排行榜
+- Atomic bid placement in Redis via a **Lua Script**
+- Prevents overselling: checks the auction time window and updates the leaderboard
+- **Bid validation**: a bid must exceed the current highest bid (validated on both frontend and backend)
+- Score formula: `score = (α × price) + (β / (t + 1)) + (γ × weight)`
+- Real-time updates: the current highest bid and leaderboard update immediately after a bid
 
-### 2. 排行榜系統
+### 2. Leaderboard System
 
-- 使用 Redis Sorted Set 維護實時排行榜
-- 根據 Score 動態排序
-- 只保留前 K 名（限量數量）
-- **顯示真實用戶名**：從資料庫查詢用戶名而非隱碼顯示
-- 實時更新：WebSocket 推送排行榜變化
+- Uses a Redis Sorted Set to maintain the live leaderboard
+- Dynamically ranked by score
+- Keeps only the top K entries (the quota)
+- **Real usernames**: usernames are looked up from the database instead of being masked
+- Real-time updates: leaderboard changes are pushed via WebSocket
 
-### 3. WebSocket 實時推送
+### 3. WebSocket Real-time Push
 
-- **商品狀態更新**：活動狀態、目前最高出價實時同步
-- **排行榜更新**：出價後立即推送最新排名
-- **出價通知**：即時通知所有訂閱者新的出價
-- **活動狀態變更**：活動開始/結束時自動推送
-- **自動顯示結果**：活動結束時自動載入並顯示最終競標結果，無需刷新頁面
+- **Product status updates**: auction status and current highest bid synced in real time
+- **Leaderboard updates**: pushed immediately after each bid
+- **Bid notifications**: subscribers are notified instantly of new bids
+- **Auction status changes**: pushed automatically when an auction starts/ends
+- **Automatic results**: final results load and display automatically when the auction ends, no refresh needed
 
-### 4. Redis Key 結構
+### 4. Redis Key Structure
 
 ```
-auction:{productId}:rank          # Sorted Set (排行榜)
-auction:{productId}:bids          # Hash (出價詳情)
-auction:{productId}:config        # Hash (商品配置)
+auction:{productId}:rank          # Sorted Set (leaderboard)
+auction:{productId}:bids          # Hash (bid details)
+auction:{productId}:config        # Hash (product config)
 ```
 
-## 🧪 測試與壓力測試
+## 🧪 Testing & Load Testing
 
-### 功能 / 手動驗證
-1. **註冊用戶**  
-   - http://localhost:5173/register，選擇 Member / Admin
-2. **登入**
-3. **管理員創建商品**（Admin）  
-   - http://localhost:5173/admin/products → 新增商品
-4. **用戶競標**  
-   - http://localhost:5173/products → 選擇「競標中」商品 → 出價（需高於目前最高價）  
-   - 即時排行榜、最高出價會透過 WebSocket 更新
-5. **查看結果**  
-   - 活動結束自動顯示結果（前 K 名得標者）
+### Functional / Manual Testing
+1. **Register**
+   - Visit http://localhost:5173/register, choose Member or Admin
+2. **Log in**
+   - Log in with your registered account
+3. **Admin creates a product** (requires Admin role)
+   - Visit http://localhost:5173/admin/products → Add Product
+4. **User bidding**
+   - Visit http://localhost:5173/products → select a product that is "bidding" → place a bid (must exceed the current highest bid)
+   - The leaderboard and current highest bid update in real time via WebSocket
+5. **View results**
+   - Results are shown automatically once the auction ends (top K winners)
 
-### 壓力測試（Locust）
-- 依賴：`pip install -r loadtest/requirements.txt`
-- Demo 腳本（自動建商品、分階段、指數成長）：  
+### Load Testing (Locust)
+- Install dependencies: `pip install -r loadtest/requirements.txt`
+- Demo script (auto-creates a product, staged/exponential ramp-up):
   ```bash
   cd loadtest
   locust -f locustfile_demo.py --host=https://d28wqj892frr80.cloudfront.net --run-time=3m
-  # 打開 http://localhost:8089 調整 users / spawn-rate
+  # Open http://localhost:8089 to adjust users / spawn-rate
   ```
-- 基礎腳本（無自動建商品）：  
+- Base script (no auto product creation):
   ```bash
   cd loadtest
   locust -f locustfile.py --host=https://d28wqj892frr80.cloudfront.net \
     --users=500 --spawn-rate=50 --run-time=3m --headless
   ```
-- 一鍵腳本：`loadtest/run_loadtest.sh` 可自行擴充。
+- One-shot script: `loadtest/run_loadtest.sh` (extend as needed)
 
-## 📝 API 文檔
+## 📝 Documentation
 
-詳細的 API 規格請參考：[frontend/API_SPEC.md](./frontend/API_SPEC.md)
+- [API Spec](./frontend/API_SPEC.md)
+- [System Architecture](./docs/ARCHITECTURE.md)
+- [Scalability & Consistency](./docs/SCALABILITY.md)
 
-## 🐳 Docker 部署
+## 🐳 Docker Deployment
 
-### 生產環境
+### Production
 
 ```bash
-# 構建並啟動
+# Build and start
 docker-compose -f docker-compose.yml up -d
 
-# 查看日誌
+# View logs
 docker-compose logs -f
 
-# 停止服務
+# Stop services
 docker-compose down
 ```
 
-### 開發環境
+### Development
 
 ```bash
-# 使用開發配置
+# Use the development config
 docker-compose up -d
 ```
 
-## 🔒 安全注意事項
+## 🔒 Security Notes
 
-1. **JWT Secret**: 生產環境請修改 `backend/internal/auth/service.go` 中的 `jwtSecret`
-2. **資料庫密碼**: 生產環境請修改 `docker-compose.yml` 中的資料庫密碼
-3. **CORS 配置**: 生產環境請更新 `backend/main.go` 中的 CORS 允許來源
+1. **JWT Secret**: change `jwtSecret` in `backend/internal/auth/service.go` before production use
+2. **Database Password**: change the database password in `docker-compose.yml` before production use
+3. **CORS Configuration**: update the allowed origins in `backend/main.go` before production use
 
-## 📈 性能優化
+## 📈 Performance Optimizations
 
-- Redis 快取排行榜，減少資料庫查詢
-- Lua Script 原子操作，避免競態條件
-- WebSocket 實時推送，減少輪詢請求
-- 異步寫入資料庫，提高響應速度
-- 智能狀態更新：活動結束時自動檢查並更新狀態
-- 結果載入重試機制：確保活動結束時結果能正確顯示
+- Redis caches the leaderboard, reducing database queries
+- Lua Script atomic operations avoid race conditions
+- WebSocket real-time push reduces polling requests
+- Asynchronous database writes improve response times
+- Smart status updates: auction status is checked and updated automatically when it ends
+- Result loading retry mechanism ensures results display correctly once the auction ends
 
-## ✨ 最新功能
+## ✨ Latest Updates
 
-### v1.1.0 更新
-- ✅ **出價驗證增強**：前端和後端雙重驗證，確保出價必須高於當前最高價
-- ✅ **實時更新優化**：目前最高出價和排行榜實時同步更新
-- ✅ **活動結束自動化**：活動結束時自動顯示結果，無需手動刷新
-- ✅ **用戶名顯示**：排行榜顯示真實用戶名而非隱碼
-- ✅ **時區修復**：商品編輯時正確處理本地時區
-- ✅ **管理頁面優化**：管理員可以從管理頁面返回商品列表
+### v1.1.0
+- ✅ **Stronger bid validation**: double validation on frontend and backend to ensure bids exceed the current highest price
+- ✅ **Improved real-time updates**: current highest bid and leaderboard stay in sync in real time
+- ✅ **Auction end automation**: results are shown automatically when an auction ends, no manual refresh needed
+- ✅ **Real usernames**: leaderboard shows real usernames instead of masked ones
+- ✅ **Timezone fix**: product editing correctly handles local timezones
+- ✅ **Admin UI improvements**: admins can return to the product list from the admin page
 
-## 🐛 故障排除
+## 🐛 Troubleshooting
 
-### 後端無法連接 Redis
-- 檢查 Redis 是否啟動：`docker ps | grep redis`
-- 檢查環境變數 `REDIS_HOST` 是否正確
+### Backend can't connect to Redis
+- Check that Redis is running: `docker ps | grep redis`
+- Check that the `REDIS_HOST` environment variable is correct
 
-### 前端無法連接後端
-- 檢查後端是否啟動：`curl http://localhost:8000/api/products`
-- 檢查 CORS 配置是否正確
-- 確認 `VITE_API_BASE_URL` 環境變數設置為 `http://localhost:8000/api`
+### Frontend can't connect to the backend
+- Check that the backend is running: `curl http://localhost:8000/api/products`
+- Check the CORS configuration
+- Make sure `VITE_API_BASE_URL` is set to `http://localhost:8000/api`
 
-### WebSocket 連接失敗
-- 檢查 token 是否有效
-- 檢查 WebSocket URL 是否正確（應為 `ws://localhost:8000/ws`）
-- 查看瀏覽器控制台錯誤訊息
-- 確認後端 WebSocket 路由已正確設置
+### WebSocket connection fails
+- Check that the token is valid
+- Check that the WebSocket URL is correct (should be `ws://localhost:8000/ws`)
+- Check the browser console for errors
+- Make sure the backend's WebSocket route is set up correctly
 
-### 出價驗證問題
-- 確保出價金額高於目前最高出價
-- 檢查前端和後端的驗證邏輯是否一致
-- 查看瀏覽器控制台和後端日誌的錯誤訊息
+### Bid validation issues
+- Make sure the bid amount exceeds the current highest bid
+- Check that frontend and backend validation logic match
+- Check the browser console and backend logs for errors
 
-### 活動結束時結果不顯示
-- 確認活動結束時間已到達
-- 檢查後端狀態是否已更新為 `ended`
-- 查看瀏覽器控制台是否有載入結果的錯誤
-- 系統會自動重試載入結果，如仍有問題請刷新頁面
+### Results don't display when the auction ends
+- Make sure the auction end time has actually passed
+- Check that the backend status has been updated to `ended`
+- Check the browser console for errors while loading results
+- The system retries loading results automatically; refresh the page if the issue persists
 
-### 時區問題
-- 編輯商品時，時間會以本地時區顯示
-- 保存時會正確轉換為時間戳
-- 如果時間顯示不正確，請檢查瀏覽器時區設置
+### Timezone issues
+- When editing a product, times are shown in the local timezone
+- Times are correctly converted to timestamps on save
+- If times look wrong, check your browser's timezone settings
 
-## 📄 授權
+## 📄 License
 
 MIT License
 
-## 👥 貢獻
+## 👥 Contributing
 
-歡迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 📞 聯繫
+## 📞 Contact
 
-如有問題或建議，請聯繫開發團隊。
-
+Please contact the development team with any questions or suggestions.

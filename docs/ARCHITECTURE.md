@@ -1,223 +1,209 @@
-# 系统架构文档
+# System Architecture
 
-## 系统架构图
+English | [繁體中文](./ARCHITECTURE.zh-TW.md)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Browser    │  │   Browser    │  │   Browser    │          │
-│  │  (React App) │  │  (React App) │  │  (React App) │          │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
-│         │                  │                  │                  │
-│         └──────────────────┼──────────────────┘                 │
-│                            │                                     │
-│                    HTTP/WebSocket                               │
-└────────────────────────────┼─────────────────────────────────────┘
-                              │
-┌─────────────────────────────┼─────────────────────────────────────┐
-│                    API Gateway Layer                              │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              Gin HTTP Server (Port 8000)                 │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │   │
-│  │  │   Auth       │  │   Product    │  │   Bidding    │   │   │
-│  │  │  Handler     │  │   Handler    │  │   Handler    │   │   │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘   │   │
-│  │                                                          │   │
-│  │  ┌──────────────────────────────────────────────────┐  │   │
-│  │  │         WebSocket Hub (Port 8000/ws)              │  │   │
-│  │  │  - 管理所有 WebSocket 连接                        │  │   │
-│  │  │  - 广播排行榜和商品更新                           │  │   │
-│  │  └──────────────────────────────────────────────────┘  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────┼─────────────────────────────────────┘
-                              │
-┌─────────────────────────────┼─────────────────────────────────────┐
-│                      Service Layer                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
-│  │   Auth       │  │   Product    │  │   Bidding    │            │
-│  │  Service     │  │   Service    │  │   Service    │            │
-│  └──────────────┘  └──────────────┘  └──────────────┘            │
-│         │                 │                 │                     │
-└─────────┼─────────────────┼─────────────────┼─────────────────────┘
-          │                 │                 │
-          │                 │                 │
-┌─────────┼─────────────────┼─────────────────┼─────────────────────┐
-│         │                 │                 │    Data Layer        │
-│         │                 │                 │                      │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐              │
-│  │ PostgreSQL  │  │    Redis    │  │    Redis    │              │
-│  │             │  │   (Config)  │  │  (Ranking)  │              │
-│  │ - Users     │  │             │  │             │              │
-│  │ - Products  │  │ - Product   │  │ - Sorted    │              │
-│  │ - BidLogs  │  │   Config    │  │   Set       │              │
-│  │             │  │             │  │   (Top K)  │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │              Lua Script (Atomic Operations)               │  │
-│  │  - 防止超卖                                               │  │
-│  │  - 原子性更新排行榜                                       │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────┘
+## Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph Client["Client Layer"]
+        B1["Browser (React App)"]
+        B2["Browser (React App)"]
+        B3["Browser (React App)"]
+    end
+
+    B1 & B2 & B3 -->|"HTTP / WebSocket"| GW
+
+    subgraph GW["API Gateway - Gin HTTP Server (:8000)"]
+        AuthH["Auth Handler"]
+        ProdH["Product Handler"]
+        BidH["Bidding Handler"]
+        WSHub["WebSocket Hub (/ws)<br/>manages connections, broadcasts updates"]
+    end
+
+    GW --> SVC
+
+    subgraph SVC["Service Layer"]
+        AuthS["Auth Service"]
+        ProdS["Product Service"]
+        BidS["Bidding Service"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL<br/>Users / Products / BidLogs")]
+        RedisCfg[("Redis - Config")]
+        RedisRank[("Redis - Ranking<br/>Sorted Set (Top K)")]
+        Lua["Lua Script<br/>atomic ops, prevents overselling"]
+    end
+
+    AuthS --> PG
+    ProdS --> RedisCfg
+    ProdS --> PG
+    BidS --> RedisRank
+    BidS --> Lua
+    Lua --> RedisRank
+    BidS --> PG
 ```
 
-## 数据流
+## Data Flow
 
-### 出价流程
-
-```
-1. 用户提交出价
-   ↓
-2. Bidding Handler 接收请求
-   ↓
-3. Bidding Service 处理：
-   - 从 Redis 读取商品配置
-   - 计算 Score
-   - 执行 Lua Script（原子操作）：
-     * 检查活动时间
-     * 更新排行榜（Sorted Set）
-     * 更新最高价
-   ↓
-4. 异步写入数据库（BidLog）
-   ↓
-5. WebSocket 广播：
-   - 出价通知
-   - 排行榜更新
-   ↓
-6. 前端实时更新 UI
-```
-
-### 排行榜查询流程
+### Bidding Flow
 
 ```
-1. 用户请求排行榜
+1. User submits a bid
    ↓
-2. Bidding Handler 接收请求
+2. Bidding Handler receives the request
    ↓
-3. Bidding Service：
-   - 从 Redis 读取排行榜（Sorted Set）
-   - 从 Redis 读取商品配置（K, 最高价）
-   - 计算阈值分数
+3. Bidding Service processes it:
+   - Reads product config from Redis
+   - Computes the score
+   - Runs the Lua Script (atomic operation):
+     * Checks the auction time window
+     * Updates the leaderboard (Sorted Set)
+     * Updates the current highest bid
    ↓
-4. 返回排行榜数据
+4. Asynchronously writes to the database (BidLog)
+   ↓
+5. WebSocket broadcast:
+   - Bid notification
+   - Leaderboard update
+   ↓
+6. Frontend updates the UI in real time
 ```
 
-## 技术栈
+### Leaderboard Query Flow
 
-### 后端
-- **语言**: Go 1.25
-- **框架**: Gin
-- **数据库**: PostgreSQL 13
-- **缓存**: Redis (Alpine)
+```
+1. User requests the leaderboard
+   ↓
+2. Bidding Handler receives the request
+   ↓
+3. Bidding Service:
+   - Reads the leaderboard from Redis (Sorted Set)
+   - Reads product config from Redis (K, current highest bid)
+   - Computes the threshold score
+   ↓
+4. Returns the leaderboard data
+```
+
+## Tech Stack
+
+### Backend
+- **Language**: Go 1.25
+- **Framework**: Gin
+- **Database**: PostgreSQL 13
+- **Cache**: Redis (Alpine)
 - **WebSocket**: gorilla/websocket
-- **认证**: JWT
+- **Auth**: JWT
 
-### 前端
-- **框架**: React 19.2
-- **语言**: TypeScript
-- **构建**: Vite 7.2
-- **样式**: Tailwind CSS 3.4
-- **路由**: React Router DOM 7.1
+### Frontend
+- **Framework**: React 19.2
+- **Language**: TypeScript
+- **Build**: Vite 7.2
+- **Styling**: Tailwind CSS 3.4
+- **Routing**: React Router DOM 7.1
 
-### 基础设施
-- **容器化**: Docker + Docker Compose
-- **编排**: Docker Compose
+### Infrastructure
+- **Containerization**: Docker + Docker Compose
+- **Orchestration**: Docker Compose
 
-## 关键设计决策
+## Key Design Decisions
 
-### 1. Redis 作为排行榜存储
-- **原因**: 需要高性能的排序和实时更新
-- **数据结构**: Sorted Set (ZSET)
-- **优势**: O(log N) 插入和查询，自动排序
+### 1. Redis as the Leaderboard Store
+- **Why**: needs high-performance sorting and real-time updates
+- **Data structure**: Sorted Set (ZSET)
+- **Benefit**: O(log N) insert and query, automatically sorted
 
-### 2. Lua Script 防止超卖
-- **原因**: 确保原子性操作，避免竞态条件
-- **实现**: Redis EvalSha 执行 Lua 脚本
-- **优势**: 单线程执行，保证一致性
+### 2. Lua Script to Prevent Overselling
+- **Why**: guarantees atomic operations and avoids race conditions
+- **How**: executed via Redis EvalSha
+- **Benefit**: single-threaded execution guarantees consistency
 
-### 3. WebSocket 实时推送
-- **原因**: 减少轮询请求，提供实时体验
-- **实现**: gorilla/websocket Hub 模式
-- **优势**: 低延迟，双向通信
+### 3. WebSocket for Real-time Push
+- **Why**: reduces polling requests and provides a real-time experience
+- **How**: gorilla/websocket Hub pattern
+- **Benefit**: low latency, bidirectional communication
 
-### 4. 异步数据库写入
-- **原因**: 提高响应速度，不影响用户体验
-- **实现**: Goroutine 异步写入
-- **优势**: 快速响应，最终一致性
+### 4. Asynchronous Database Writes
+- **Why**: improves response time without affecting user experience
+- **How**: writes happen in a goroutine
+- **Benefit**: fast responses, eventual consistency
 
-## 扩展性设计
+## Scalability Design
 
-### 水平扩展
-- **无状态 API**: 可以部署多个后端实例
-- **Redis 集群**: 支持 Redis Cluster
-- **数据库读写分离**: 可以配置主从复制
+### Horizontal Scaling
+- **Stateless API**: multiple backend instances can be deployed
+- **Redis Cluster**: supported
+- **Database read/write splitting**: primary/replica replication can be configured
 
-### 垂直扩展
-- **资源监控**: CPU、内存使用率
-- **连接池**: 数据库和 Redis 连接池
-- **缓存策略**: Redis 缓存热点数据
+### Vertical Scaling
+- **Resource monitoring**: CPU and memory usage
+- **Connection pools**: for the database and Redis
+- **Caching strategy**: Redis caches hot data
 
-## 一致性保证
+## Consistency Guarantees
 
-### 强一致性
-- **排行榜更新**: Lua Script 原子操作
-- **库存检查**: Lua Script 中检查活动时间
+### Strong Consistency
+- **Leaderboard updates**: atomic via the Lua Script
+- **Quota checks**: the auction time window is checked inside the Lua Script
 
-### 最终一致性
-- **数据库写入**: 异步写入，最终一致
-- **WebSocket 推送**: 可能延迟，但最终会同步
+### Eventual Consistency
+- **Database writes**: asynchronous, eventually consistent
+- **WebSocket push**: may be delayed, but eventually synced
 
-## 性能优化
+## Performance Optimizations
 
-### 后端优化
-1. **Redis 缓存**: 排行榜和商品配置
-2. **连接池**: 数据库和 Redis 连接复用
-3. **异步处理**: 数据库写入异步化
-4. **Lua Script**: 减少网络往返
+### Backend
+1. **Redis caching**: leaderboard and product config
+2. **Connection pooling**: PostgreSQL connections are pooled (max 600 open / 100 idle, 1-hour max lifetime)
+3. **Async processing**: database writes are asynchronous
+4. **Lua Script**: reduces network round-trips
 
-### 前端优化
-1. **WebSocket**: 减少 HTTP 轮询
-2. **组件懒加载**: React 代码分割
-3. **缓存策略**: 本地缓存商品列表
+### Frontend
+1. **WebSocket**: reduces HTTP polling
+2. **Lazy loading**: React code splitting
+3. **Caching**: product list cached locally
 
-## 监控与日志
+## Monitoring and Logging
 
-### 关键指标
-- **响应时间**: p50, p95, p99
-- **错误率**: 4xx, 5xx 错误比例
-- **吞吐量**: RPS (Requests Per Second)
-- **并发连接**: WebSocket 连接数
+### Key Metrics
+- **Response time**: p50, p95, p99
+- **Error rate**: 4xx/5xx error ratio
+- **Throughput**: RPS (Requests Per Second)
+- **Concurrent connections**: WebSocket connection count
 
-### 日志
-- **访问日志**: Gin 默认日志
-- **错误日志**: 结构化错误记录
-- **性能日志**: 关键操作耗时
+### Logging
+- **Access logs**: Gin's default logging
+- **Error logs**: structured error records
+- **Performance logs**: timing for key operations
 
-## 安全考虑
+## Security Considerations
 
-### 认证与授权
-- **JWT Token**: 无状态认证
-- **角色控制**: Admin/Member 权限分离
-- **Token 过期**: 24 小时有效期
+### Authentication & Authorization
+- **JWT Token**: stateless authentication
+- **Role-based access**: Admin/Member permission separation
+- **Token expiry**: 24-hour validity
 
-### 数据安全
-- **密码加密**: bcrypt 哈希
-- **SQL 注入防护**: GORM 参数化查询
-- **XSS 防护**: React 自动转义
+### Data Security
+- **Password hashing**: bcrypt
+- **SQL injection protection**: GORM parameterized queries
+- **XSS protection**: React's automatic escaping
 
-## 部署架构
+### Known Gap
+- **WebSocket CORS**: the HTTP API restricts allowed origins, but the WebSocket upgrader's `CheckOrigin` currently accepts any origin, which bypasses that restriction for `/ws` connections. This should be tightened to the same allow-list before production use.
 
-### 开发环境
+## Deployment Architecture
+
+### Development
 ```
 Docker Compose
-├── Redis (单节点)
-├── PostgreSQL (单节点)
-├── Backend (开发模式)
-└── Frontend (开发模式)
+├── Redis (single node)
+├── PostgreSQL (single node)
+├── Backend (dev mode)
+└── Frontend (dev mode)
 ```
 
-### 生产环境（建议）
+### Production (recommended)
 ```
 Load Balancer
 ├── Backend Instance 1
@@ -229,8 +215,7 @@ Redis Cluster
 ├── Redis Node 2
 └── Redis Node 3
 │
-PostgreSQL (主从复制)
+PostgreSQL (Primary/Replica)
 ├── Primary
 └── Replica
 ```
-

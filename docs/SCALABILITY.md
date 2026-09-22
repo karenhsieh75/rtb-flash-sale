@@ -1,13 +1,15 @@
-# Scalability 与一致性说明
+# Scalability and Consistency
 
-## 系统扩展性 (Scalability)
+English | [繁體中文](./SCALABILITY.zh-TW.md)
 
-### 1. 水平扩展能力
+## System Scalability
 
-#### 后端服务扩展
-- **无状态设计**: 所有后端服务实例都是无状态的
-- **负载均衡**: 可以通过 Load Balancer 分发请求
-- **会话管理**: 使用 JWT Token，无需服务器端会话存储
+### 1. Horizontal Scaling
+
+#### Backend Service Scaling
+- **Stateless design**: every backend instance is stateless
+- **Load balancing**: requests can be distributed via a load balancer
+- **Session management**: JWT tokens remove the need for server-side session storage
 
 ```
 ┌─────────────┐
@@ -22,70 +24,72 @@
 └─────┘ └─────┘  └─────┘  └─────┘
 ```
 
-#### Redis 扩展
-- **Redis Cluster**: 支持分片和主从复制
-- **数据分片**: 可以按商品 ID 分片
-- **读写分离**: 主节点写入，从节点读取
+#### Redis Scaling
+- **Redis Cluster**: supports sharding and primary/replica replication
+- **Data sharding**: can be sharded by product ID
+- **Read/write splitting**: writes go to the primary, reads go to replicas
 
-#### 数据库扩展
-- **主从复制**: PostgreSQL 支持主从复制
-- **读写分离**: 写操作到主节点，读操作到从节点
-- **连接池**: 使用连接池管理数据库连接
+#### Database Scaling
+- **Primary/replica replication**: supported by PostgreSQL
+- **Read/write splitting**: writes to the primary, reads from replicas
+- **Connection pooling**: manages database connections
 
-### 2. 垂直扩展能力
+### 2. Vertical Scaling
 
-#### 资源监控
-- **CPU**: 监控 CPU 使用率，设置阈值告警
-- **内存**: 监控内存使用，防止 OOM
-- **连接数**: 监控数据库和 Redis 连接数
+#### Resource Monitoring
+- **CPU**: monitor usage and set threshold alerts
+- **Memory**: monitor usage to prevent OOM
+- **Connections**: monitor database and Redis connection counts
 
-#### 性能调优
-- **连接池大小**: 根据并发量调整
-- **缓存策略**: 优化 Redis 缓存命中率
-- **数据库索引**: 优化查询性能
+#### Performance Tuning
+- **Connection pool size**: adjusted based on concurrency
+- **Caching strategy**: optimize Redis cache hit rate
+- **Database indexes**: optimize query performance
 
-### 3. 扩展性指标
+### 3. Scalability Targets
 
-| 指标 | 当前能力 | 扩展后能力 |
+The numbers below are design targets, not measured benchmark results — `loadtest/` has Locust scripts capable of generating this kind of load, but no saved run backs these figures yet.
+
+| Metric | Target (current setup) | Target (after scaling) |
 |------|---------|-----------|
-| 并发用户 | 1000+ | 10000+ |
+| Concurrent users | 1000+ | 10000+ |
 | RPS | 1000+ | 10000+ |
-| WebSocket 连接 | 1000+ | 10000+ |
-| 响应时间 (p95) | < 500ms | < 500ms |
+| WebSocket connections | 1000+ | 10000+ |
+| Response time (p95) | < 500ms | < 500ms |
 
-## 一致性保证 (Consistency)
+## Consistency Guarantees
 
-### 1. 强一致性场景
+### 1. Strong Consistency Scenarios
 
-#### 排行榜更新
-- **实现**: Lua Script 原子操作
-- **保证**: 单线程执行，保证原子性
-- **场景**: 出价时更新排行榜
+#### Leaderboard Updates
+- **Implementation**: atomic Lua Script operation
+- **Guarantee**: single-threaded execution guarantees atomicity
+- **Scenario**: updating the leaderboard when a bid is placed
 
 ```lua
--- Lua Script 保证原子性
+-- Lua Script guarantees atomicity
 local rank_key = KEYS[1]
 local user_id = ARGV[1]
 local score = ARGV[2]
 
--- 原子性更新
+-- Atomic update
 redis.call("ZADD", rank_key, score, user_id)
 ```
 
-#### 库存检查
-- **实现**: Lua Script 中检查活动时间
-- **保证**: 防止活动结束后继续出价
-- **场景**: 出价时检查活动状态
+#### Quota Checks
+- **Implementation**: the auction time window is checked inside the Lua Script
+- **Guarantee**: prevents bids after the auction has ended
+- **Scenario**: checking auction status when a bid is placed
 
-### 2. 最终一致性场景
+### 2. Eventual Consistency Scenarios
 
-#### 数据库写入
-- **实现**: 异步 Goroutine 写入
-- **保证**: 最终会写入数据库
-- **场景**: 出价记录异步持久化
+#### Database Writes
+- **Implementation**: asynchronous goroutine writes
+- **Guarantee**: eventually persisted to the database
+- **Scenario**: bid records are persisted asynchronously
 
 ```go
-// 异步写入数据库
+// Asynchronous database write
 go func() {
     s.db.Create(&database.BidLog{
         UserID: userID,
@@ -97,167 +101,161 @@ go func() {
 }()
 ```
 
-#### WebSocket 推送
-- **实现**: 异步广播消息
-- **保证**: 最终所有客户端会收到更新
-- **场景**: 排行榜更新推送
+#### WebSocket Push
+- **Implementation**: asynchronous message broadcast
+- **Guarantee**: all clients eventually receive the update
+- **Scenario**: leaderboard update push
 
-### 3. 一致性模型
+### 3. Consistency Model
 
-#### CAP 定理分析
-- **Consistency (一致性)**: 
-  - 排行榜：强一致性（Lua Script）
-  - 数据库：最终一致性（异步写入）
-  
-- **Availability (可用性)**: 
-  - 高可用（多实例部署）
-  - Redis 主从复制
-  - 数据库主从复制
-  
-- **Partition Tolerance (分区容错)**: 
-  - Redis Cluster 支持分区
-  - 数据库主从复制支持分区
+#### CAP Theorem Analysis
+- **Consistency**:
+  - Leaderboard: strong consistency (Lua Script)
+  - Database: eventual consistency (async writes)
 
-**选择**: 优先保证 **Availability** 和 **Partition Tolerance**，在关键场景（排行榜）保证 **Consistency**
+- **Availability**:
+  - High availability (multi-instance deployment)
+  - Redis primary/replica replication *(target design, not yet set up — the current `docker-compose.yml` runs a single Redis node)*
+  - Database primary/replica replication *(target design, not yet set up — the current `docker-compose.yml` runs a single PostgreSQL node)*
 
-### 4. 数据一致性验证
+- **Partition Tolerance**:
+  - Redis Cluster support *(target design; not currently deployed)*
+  - Database primary/replica replication *(target design; not currently deployed)*
 
-#### 验证方法
-1. **出价记录数 <= K**: 通过 Lua Script 保证
-2. **排行榜用户数 <= K**: Redis Sorted Set 自动维护
-3. **数据库与 Redis 一致性**: 定期验证脚本
+**Trade-off**: prioritize **Availability** and **Partition Tolerance**, while guaranteeing **Consistency** for critical paths (the leaderboard). Note: today's deployment is a single Redis instance and a single PostgreSQL instance, so the multi-node availability/partition-tolerance story above is a scaling plan, not the current state.
 
-#### 验证脚本
-```bash
-# 运行数据验证
-python loadtest/verify_data.py
-```
+### 4. Data Consistency Verification
 
-## 性能优化策略
+#### Verification Methods
+1. **Bid record count <= K**: guaranteed by the Lua Script
+2. **Leaderboard user count <= K**: automatically maintained by the Redis Sorted Set
+3. **Database/Redis consistency**: would need a periodic verification script
 
-### 1. 缓存策略
+> No such verification script exists in this repo yet (`loadtest/` currently only has `demo_script.py`, `locustfile.py`, `locustfile_demo.py`). This is a proposed check, not an implemented one.
 
-#### Redis 缓存
-- **商品配置**: 缓存商品参数（K, alpha, beta, gamma）
-- **排行榜**: 实时排行榜（Sorted Set）
-- **最高价**: 缓存当前最高价
+## Performance Optimization Strategy
 
-#### 缓存更新
-- **写穿透**: 更新时同时更新缓存
-- **失效策略**: 活动结束后清理缓存
+### 1. Caching Strategy
 
-### 2. 数据库优化
+#### Redis Cache
+- **Product config**: caches product parameters (K, alpha, beta, gamma)
+- **Leaderboard**: live leaderboard (Sorted Set)
+- **Highest bid**: caches the current highest bid
 
-#### 索引优化
+#### Cache Updates
+- **Write-through**: cache is updated alongside the source of truth
+- **Invalidation**: cache is cleared once the auction ends
+
+### 2. Database Optimization
+
+#### Indexes
 ```sql
--- 用户表索引
+-- Users table index
 CREATE INDEX idx_users_username ON users(username);
 
--- 出价记录索引
+-- Bid log indexes
 CREATE INDEX idx_bid_logs_product ON bid_logs(product_id);
 CREATE INDEX idx_bid_logs_user ON bid_logs(user_id);
 ```
 
-#### 查询优化
-- **分页查询**: 避免全表扫描
-- **连接池**: 复用数据库连接
-- **批量操作**: 批量写入出价记录
+#### Query Optimization
+- **Pagination**: avoids full table scans
+- **Connection pooling**: reuses database connections
+- **Batch operations**: bulk writes for bid records
 
-### 3. 网络优化
+### 3. Network Optimization
 
-#### HTTP 优化
-- **压缩**: Gzip 压缩响应
-- **Keep-Alive**: 复用 HTTP 连接
-- **CDN**: 静态资源使用 CDN
+#### HTTP
+- **Compression**: Gzip-compressed responses
+- **Keep-Alive**: reused HTTP connections
+- **CDN**: static assets served via CDN
 
-#### WebSocket 优化
-- **心跳**: 定期发送 Ping/Pong
-- **重连**: 指数退避重连策略
-- **消息压缩**: 大消息压缩传输
+#### WebSocket
+- **Heartbeat**: periodic Ping/Pong
+- **Reconnection**: exponential backoff
+- **Message compression**: large messages are compressed
 
-## 监控与告警
+## Monitoring and Alerting
 
-### 1. 关键指标
+### 1. Key Metrics
 
-#### 性能指标
-- **响应时间**: p50, p95, p99
-- **吞吐量**: RPS (Requests Per Second)
-- **错误率**: 4xx, 5xx 错误比例
+#### Performance Metrics
+- **Response time**: p50, p95, p99
+- **Throughput**: RPS (Requests Per Second)
+- **Error rate**: 4xx/5xx ratio
 
-#### 系统指标
-- **CPU 使用率**: < 80%
-- **内存使用率**: < 80%
-- **连接数**: 数据库和 Redis 连接数
+#### System Metrics
+- **CPU usage**: < 80%
+- **Memory usage**: < 80%
+- **Connections**: database and Redis connection counts
 
-#### 业务指标
-- **出价成功率**: > 95%
-- **排行榜更新延迟**: < 100ms
-- **WebSocket 连接数**: 实时监控
+#### Business Metrics
+- **Bid success rate**: > 95%
+- **Leaderboard update latency**: < 100ms
+- **WebSocket connections**: monitored in real time
 
-### 2. 告警规则
+### 2. Alert Rules
 
-#### 告警阈值
-- **响应时间 p95 > 1s**: 告警
-- **错误率 > 5%**: 告警
-- **CPU 使用率 > 90%**: 告警
-- **内存使用率 > 90%**: 告警
+#### Thresholds
+- **Response time p95 > 1s**: alert
+- **Error rate > 5%**: alert
+- **CPU usage > 90%**: alert
+- **Memory usage > 90%**: alert
 
-## 故障恢复
+## Failure Recovery
 
-### 1. 故障场景
+### 1. Failure Scenarios
 
-#### Redis 故障
-- **影响**: 排行榜无法更新
-- **恢复**: 从数据库重建排行榜
-- **预防**: Redis 主从复制
+#### Redis Failure
+- **Impact**: the leaderboard can't be updated
+- **Recovery**: rebuild the leaderboard from the database
+- **Prevention (planned)**: Redis primary/replica replication — not yet deployed
 
-#### 数据库故障
-- **影响**: 无法持久化数据
-- **恢复**: 从 Redis 恢复数据
-- **预防**: 数据库主从复制
+#### Database Failure
+- **Impact**: data can't be persisted
+- **Recovery**: recover data from Redis
+- **Prevention (planned)**: database primary/replica replication — not yet deployed
 
-#### 服务故障
-- **影响**: 服务不可用
-- **恢复**: 自动重启或切换实例
-- **预防**: 多实例部署，健康检查
+#### Service Failure
+- **Impact**: the service becomes unavailable
+- **Recovery**: automatic restart or instance failover
+- **Prevention**: multi-instance deployment with health checks
 
-### 2. 数据恢复
+### 2. Data Recovery
 
-#### 从 Redis 恢复
+> The two snippets below sketch the recovery approach; neither `RecoverRankingsFromRedis` nor `RebuildRankingsFromDB` exists in the codebase yet — this is a proposed design, not a shipped feature.
+
+#### Recovering from Redis (proposed)
 ```go
-// 从 Redis 恢复排行榜到数据库
+// Recover the leaderboard from Redis into the database
 func RecoverRankingsFromRedis(productID string) {
-    // 从 Redis 读取排行榜
-    // 写入数据库
+    // Read the leaderboard from Redis
+    // Write it to the database
 }
 ```
 
-#### 从数据库恢复
+#### Recovering from the Database (proposed)
 ```go
-// 从数据库重建 Redis 排行榜
+// Rebuild the Redis leaderboard from the database
 func RebuildRankingsFromDB(productID string) {
-    // 从数据库读取出价记录
-    // 重建 Redis 排行榜
+    // Read bid records from the database
+    // Rebuild the Redis leaderboard
 }
 ```
 
-## 总结
+## Summary
 
-### 扩展性
-- ✅ **水平扩展**: 支持多实例部署
-- ✅ **垂直扩展**: 支持资源扩容
-- ✅ **缓存优化**: Redis 缓存热点数据
-- ✅ **数据库优化**: 索引和查询优化
+### Scalability
+- ✅ **Horizontal scaling**: the API is stateless, so multiple backend instances can be run behind a load balancer (not yet deployed that way)
+- 🔲 **Cluster/replica scaling**: Redis Cluster and PostgreSQL replicas are a planned next step, not yet set up
+- ✅ **Cache optimization**: Redis caches hot data (leaderboard, product config)
+- ✅ **Database optimization**: indexing and connection pooling in place
 
-### 一致性
-- ✅ **强一致性**: 排行榜更新（Lua Script）
-- ✅ **最终一致性**: 数据库写入（异步）
-- ✅ **数据验证**: 定期验证脚本
-- ✅ **故障恢复**: 数据恢复机制
+### Consistency
+- ✅ **Strong consistency**: leaderboard updates (Lua Script)
+- ✅ **Eventual consistency**: database writes (async)
+- 🔲 **Data validation**: a periodic verification script is proposed but not implemented
+- 🔲 **Failure recovery**: the recovery functions above are a design sketch, not implemented
 
-### 性能
-- ✅ **响应时间**: p95 < 500ms
-- ✅ **吞吐量**: 1000+ RPS
-- ✅ **并发支持**: 1000+ 用户
-- ✅ **实时性**: WebSocket < 100ms 延迟
-
+### Performance
+- 🔲 **Response time / throughput / WebSocket latency targets above**: design goals only — no load-test results in this repo currently confirm them
